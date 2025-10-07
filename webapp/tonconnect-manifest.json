@@ -1,9 +1,5 @@
 {
-  "name": "Crypto Game",
-  "icon": "https://yourwebsite.com/icon.png",
-  "description": "Game with TON Wallet integration",
-  "url": "https://khankhan3456.netlify.app",  
-  "network": "mainnet"  
-  
+    "url": "https://tranquil-licorice-9cec1c.netlify.app",
+    "name": "Quotex QTX Airdrop Game"
 }
 
