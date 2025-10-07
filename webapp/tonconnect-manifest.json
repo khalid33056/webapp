@@ -1,29 +1,8 @@
 {
-  "url": "https://webapp-nine-omega-68.vercel.app",
-  "name": "QTX Game",
-  "iconUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Bitcoin_logotype.svg",
-  "icons": [
-    {
-      "src": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Bitcoin_logotype.svg",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Bitcoin_logotype.svg",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
-  "description": "QTX Game - A WebApp game integrated with TON blockchain",
-  "termsOfUseUrl": "https://webapp-nine-omega-68.vercel.app/terms",
-  "privacyPolicyUrl": "https://webapp-nine-omega-68.vercel.app/privacy",
-  "developer": {
-    "name": "Khalid",
-    "url": "https://webapp-nine-omega-68.vercel.app"
-  },
-  "recommendedWallets": [
-    "Tonkeeper",
-    "Tonhub",
-    "TON Wallet"
-  ]
+  "name": "Crypto Game",
+  "icon": "https://yourwebsite.com/icon.png",
+  "description": "Game with TON Wallet integration",
+  "url": "https://khankhan3456.netlify.app",  
+  "network": "mainnet"  
 }
+
