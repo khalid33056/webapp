@@ -1687,29 +1687,26 @@
             setInterval(saveState, 5000);
         };
     </script>
-
 <script type="module">
   import { TonConnect } from "https://cdn.jsdelivr.net/npm/@tonconnect/sdk/dist/sdk.min.js";
 
   // Initialize TonConnect
   const tonConnect = new TonConnect({
-    manifestUrl: "https://khankhan3456.netlify.app/manifest.json"
-});
- // apni manifest.json ki URL
+      manifestUrl: "https://khankhan3456.netlify.app/manifest.json" // Replace with your manifest URL
   });
 
   // Function to connect wallet
   async function connectWalletTON() {
       try {
-          const wallet = await tonConnect.connect(); // Automatically shows available wallets
+          const wallet = await tonConnect.connect(); // Shows available wallets
           const address = wallet.account.address;
 
           console.log("Connected TON Wallet Address:", address);
 
-          // Optional: save wallet address in localStorage or your app state
+          // Save wallet address in localStorage or your app state
           localStorage.setItem("tonWalletAddress", address);
 
-          // Update your UI (agar chaho)
+          // Update UI
           const walletDisplay = document.getElementById("walletAddressDisplay");
           if(walletDisplay){
               walletDisplay.textContent = `Connected: ${address}`;
@@ -1733,13 +1730,12 @@
   }
 
   // Attach connect function to your existing wallet button
-  // Assume your wallet button has id="walletBtn"
   const walletBtn = document.getElementById("walletBtn");
   if(walletBtn){
       walletBtn.addEventListener("click", connectWalletTON);
   }
-
 </script>
+
 
 </script>
 
