@@ -1688,34 +1688,57 @@
         };
     </script>
 
-<!-- TON Connect Wallet Integration (auto-added) -->
 <script type="module">
-  import { TonConnect } from "https://cdn.jsdelivr.net/npm/@tonconnect/sdk/dist/ton-connect.min.js";
+  import { TonConnect } from "https://cdn.jsdelivr.net/npm/@tonconnect/sdk/dist/sdk.min.js";
 
+  // Initialize TonConnect
   const tonConnect = new TonConnect({
-    manifestUrl: "https://webapp-nine-omega-68.vercel.app/tonconnect-manifest.json"
-
-
-
+      manifestUrl: "https://yourwebsite.com/manifest.json" // apni manifest.json ki URL
   });
 
-  async function handleWalletConnect() {
-    try {
-      const session = await tonConnect.connect();
-      if (session && session.account && session.account.address) {
-        globalState.connectedWallet = session.account.address;
-        showNotification("Wallet Connected: " + session.account.address);
-        if (typeof renderPage === 'function') renderPage();
-      } else {
-        showNotification("Connected but no address found");
+  // Function to connect wallet
+  async function connectWalletTON() {
+      try {
+          const wallet = await tonConnect.connect(); // Automatically shows available wallets
+          const address = wallet.account.address;
+
+          console.log("Connected TON Wallet Address:", address);
+
+          // Optional: save wallet address in localStorage or your app state
+          localStorage.setItem("tonWalletAddress", address);
+
+          // Update your UI (agar chaho)
+          const walletDisplay = document.getElementById("walletAddressDisplay");
+          if(walletDisplay){
+              walletDisplay.textContent = `Connected: ${address}`;
+          }
+
+      } catch (err) {
+          console.error("TON Wallet connection failed:", err);
       }
-    } catch (err) {
-      console.error("TON Connect error:", err);
-      showNotification("Wallet connection cancelled or failed.");
-    }
   }
 
-  window.handleWalletConnect = handleWalletConnect;
+  // Optional: Disconnect function
+  function disconnectWalletTON() {
+      tonConnect.disconnect();
+      console.log("Wallet disconnected");
+      localStorage.removeItem("tonWalletAddress");
+
+      const walletDisplay = document.getElementById("walletAddressDisplay");
+      if(walletDisplay){
+          walletDisplay.textContent = "Wallet disconnected";
+      }
+  }
+
+  // Attach connect function to your existing wallet button
+  // Assume your wallet button has id="walletBtn"
+  const walletBtn = document.getElementById("walletBtn");
+  if(walletBtn){
+      walletBtn.addEventListener("click", connectWalletTON);
+  }
+
+</script>
+
 </script>
 
 </body>
