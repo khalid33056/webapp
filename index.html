@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <!-- TON Connect SDK -->
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         /* Define Simple Blue Professional Colors */
         :root {
@@ -101,7 +98,18 @@
         .ton-connect-button {
             width: 100%;
             margin-bottom: 1rem;
-            min-height: 48px; /* Ensure consistent height */
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        .custom-scroll {
+            overflow-y: auto;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background-color: var(--primary-blue);
+            border-radius: 2px;
         }
 
         /* Manual TON Connect Button */
@@ -126,47 +134,13 @@
             cursor: not-allowed;
             transform: none;
         }
-
-        /* Custom scrollbar for better aesthetics */
-        .custom-scroll {
-            overflow-y: auto;
-        }
-        .custom-scroll::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background-color: var(--primary-blue);
-            border-radius: 2px;
-        }
-
-        /* Modal styling fixes */
-        #generic-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Page transition */
-        .page-content {
-            display: none;
-        }
-        .page-content.active {
-            display: block;
-        }
     </style>
 </head>
 <body>
 
     <!-- Main App Container -->
     <div id="app" class="min-h-screen pb-20 max-w-md mx-auto relative custom-scroll">
-        <!-- All pages will be rendered here and shown/hidden based on navigation -->
+        <!-- Content will be rendered here -->
     </div>
 
     <!-- Generic Full-Screen Modal (Used for Quotex Warning and Check-in) -->
@@ -262,12 +236,12 @@
         let globalState = {
             currentPage: 'home',
             
-            // User Data
+            // User Data - ALL RESET TO ZERO
             userId: 'user-' + Math.random().toString(36).substring(2, 9),
             balance: 0.0,
             farmClaimCount: 0, // Track the number of successful farm claims
             referralCount: 0,
-            currentRank: 0,
+            currentRank: 0, // Reset to 0
             
             connectedWallet: null,
             walletBalance: 0.0,
@@ -275,7 +249,7 @@
             // Farming State
             farmReadyTime: 0, 
             
-            // Task State
+            // Task State - ALL RESET TO INCOMPLETE
             tasks: {
                 joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
                 followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
@@ -285,6 +259,7 @@
                     completed: false, 
                     reward: 12.5, 
                     title: 'Join Quotex platform', 
+                    // status: 'initial', 'pending_id', 'loading', 'complete'
                     status: 'initial', 
                     quotexId: null, 
                     idEntryTime: 0 
@@ -299,7 +274,7 @@
             },
             referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)), 
 
-            // Presale History
+            // Presale History (Empty)
             presaleHistory: [],
             
             // Boost State
@@ -312,7 +287,7 @@
             presaleFaqOpen: false, 
             whitepaperOpen: false, 
             
-            // Daily Check-in State
+            // Daily Check-in State - RESET TO ZERO
             dailyCheckin: {
                 streak: 0,
                 lastClaim: 0,
@@ -320,135 +295,105 @@
             
             // UI State
             notification: null,
-            welcomeClaimed: false,
+            welcomeClaimed: false, // Reset welcome claim status
         };
 
-        // --- TON WALLET CONNECTION SYSTEM ---
-        let tonConnectUI = null;
-        
-        function initTonConnect() {
-            try {
-                console.log("🔄 Initializing TON Connect...");
-                
-                // Create a proper manifest for the app
-                const manifest = {
-                    url: "https://tranquil-licorice-9cec1c.netlify.app/",
-                    name: "Quotex QTX Airdrop Game",
-                    iconUrl: "https://i.postimg.cc/t4mCByWd/logo-6bc84fe.png",
-                    termsOfUseUrl: "https://tranquil-licorice-9cec1c.netlify.app/terms",
-                    privacyPolicyUrl: "https://tranquil-licorice-9cec1c.netlify.app/privacy"
-                };
-                
-                console.log("📋 Manifest created:", manifest);
-                
-                // Initialize TON Connect with proper configuration
-                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifest: manifest,
-                    buttonRootId: 'ton-connect-button',
-                    actionsConfiguration: {
-                        twaReturnUrl: 'https://t.me/Quotexhouse_bot'
-                    }
-                });
+        // --- MANUAL WALLET CONNECTION SYSTEM ---
+        // Since we don't have manifest.json, we'll use a manual connection system
 
-                console.log("✅ TON Connect UI initialized");
-
-                // Subscribe to connection status changes
-                tonConnectUI.onStatusChange(async (wallet) => {
-                    console.log("🔗 Wallet status changed:", wallet);
-                    if (wallet) {
-                        // Wallet connected
-                        globalState.connectedWallet = wallet.account.address;
-                        console.log("✅ Wallet connected:", wallet.account.address);
-                        // Fetch real wallet balance
-                        await fetchWalletBalance(wallet.account.address);
-                        showNotification("TON Wallet Connected Successfully!", 3000);
-                    } else {
-                        // Wallet disconnected
-                        globalState.connectedWallet = null;
-                        globalState.walletBalance = 0.0;
-                        console.log("❌ Wallet disconnected");
-                        showNotification("Wallet Disconnected", 3000);
-                    }
-                    renderPage();
-                });
-
-                // Check if already connected
-                tonConnectUI.connectionRestored.then(() => {
-                    console.log("🔄 Connection restored");
-                }).catch(error => {
-                    console.log("ℹ️ No previous connection to restore:", error);
-                });
-                
-                console.log("🎉 TON Connect initialized successfully");
-                return true;
-            } catch (error) {
-                console.error("❌ TON Connect initialization error:", error);
-                // Fallback to manual connection if TON Connect fails
-                setupManualWalletConnection();
-                return false;
-            }
-        }
-
-        function setupManualWalletConnection() {
-            console.log("🔄 Setting up manual wallet connection");
-            const connectButton = document.getElementById('ton-connect-button');
-            if (connectButton) {
-                connectButton.innerHTML = `
-                    <button onclick="connectManualWallet()" class="manual-connect-btn">
-                        <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Connect TON Wallet
+        function connectWallet() {
+            // Show wallet options modal
+            const title = "Connect TON Wallet";
+            const bodyHtml = `
+                <div class="space-y-3">
+                    <p class="text-gray-300 text-sm mb-4">Choose your wallet to connect:</p>
+                    
+                    <button onclick="connectTelegramWallet()" class="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-between transition">
+                        <div class="flex items-center">
+                            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
+                            <span>Telegram Wallet</span>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </button>
-                `;
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
+                    
+                    <button onclick="connectTonkeeper()" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-between transition">
+                        <div class="flex items-center">
+                            <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
+                            <span>Tonkeeper</span>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    
+                    <button onclick="connectMyTonWallet()" class="w-full p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl flex items-center justify-between transition">
+                        <div class="flex items-center">
+                            <i data-lucide="wallet" class="w-5 h-5 mr-3"></i>
+                            <span>MyTonWallet</span>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                    
+                    <button onclick="mockWalletConnection()" class="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl flex items-center justify-between transition">
+                        <div class="flex items-center">
+                            <i data-lucide="cpu" class="w-5 h-5 mr-3"></i>
+                            <span>Demo Wallet (Test Mode)</span>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `;
+            const buttonHtml = `
+                <button onclick="document.getElementById('generic-modal').style.display='none'" class="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition">
+                    Cancel
+                </button>
+            `;
+
+            showGenericModal(title, bodyHtml, buttonHtml);
+            lucide.createIcons();
         }
 
-        function connectManualWallet() {
-            console.log("🔄 Manual wallet connection triggered");
-            // Simple mock for demonstration - in production, this would use TON Connect
+        function connectTelegramWallet() {
+            document.getElementById('generic-modal').style.display = 'none';
+            showNotification("Opening Telegram Wallet...", 3000);
+            // In real implementation, this would open TON Connect
+            setTimeout(() => {
+                mockWalletConnection();
+            }, 2000);
+        }
+
+        function connectTonkeeper() {
+            document.getElementById('generic-modal').style.display = 'none';
+            showNotification("Opening Tonkeeper...", 3000);
+            // In real implementation, this would open Tonkeeper deeplink
+            setTimeout(() => {
+                mockWalletConnection();
+            }, 2000);
+        }
+
+        function connectMyTonWallet() {
+            document.getElementById('generic-modal').style.display = 'none';
+            showNotification("Connecting to MyTonWallet...", 3000);
+            // In real implementation, this would connect to MyTonWallet extension
+            setTimeout(() => {
+                mockWalletConnection();
+            }, 2000);
+        }
+
+        function mockWalletConnection() {
+            // Mock wallet connection for demo purposes
             const mockAddress = 'EQ' + Math.random().toString(36).substring(2, 20).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
             globalState.connectedWallet = mockAddress;
-            fetchWalletBalance(mockAddress);
+            globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
+            
+            document.getElementById('generic-modal').style.display = 'none';
             showNotification("TON Wallet Connected Successfully!", 3000);
             renderPage();
         }
 
         function disconnectWallet() {
-            console.log("🔄 Disconnecting wallet");
-            if (tonConnectUI) {
-                tonConnectUI.disconnect();
-            } else {
-                globalState.connectedWallet = null;
-                globalState.walletBalance = 0.0;
-                showNotification("Wallet Disconnected", 3000);
-                renderPage();
-            }
-        }
-
-        async function fetchWalletBalance(address) {
-            try {
-                console.log("💰 Fetching wallet balance for:", address);
-                // Using TON API to get real balance
-                const response = await fetch(`https://tonapi.io/v2/accounts/${address}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                
-                if (data && data.balance) {
-                    // Convert from nanotons to TON
-                    globalState.walletBalance = data.balance / 1000000000;
-                    console.log("✅ Real balance fetched:", globalState.walletBalance);
-                } else {
-                    // Fallback to random balance if API fails
-                    globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
-                    console.log("⚠️ Using fallback balance:", globalState.walletBalance);
-                }
-            } catch (error) {
-                console.error("❌ Error fetching wallet balance:", error);
-                // Fallback to random balance
-                globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
-                console.log("⚠️ Using fallback balance after error:", globalState.walletBalance);
-            }
+            globalState.connectedWallet = null;
+            globalState.walletBalance = 0.0;
+            showNotification("Wallet Disconnected", 3000);
+            renderPage();
         }
 
         // --- CORE UI FUNCTIONS ---
@@ -469,32 +414,14 @@
             updateNav(page);
             if (typeof lucide !== 'undefined') lucide.createIcons();
             document.getElementById('app').scrollTop = 0;
-            
-            // Initialize TON Connect when navigating to wallet page
-            if (page === 'wallet' && !globalState.connectedWallet && !tonConnectUI) {
-                console.log("🔄 Initializing TON Connect on wallet page navigation");
-                setTimeout(() => {
-                    initTonConnect();
-                }, 100);
-            }
         }
         
         function showNotification(message, duration = 3000) {
-            // Remove existing notification
-            const existingNotification = document.querySelector('.notification-toast');
-            if (existingNotification) {
-                existingNotification.remove();
-            }
-
-            const notification = document.createElement('div');
-            notification.className = 'notification-toast fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl animate-pulse text-sm font-semibold transition-opacity duration-300';
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
+            globalState.notification = message;
+            renderPage(); 
             setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
+                globalState.notification = null;
+                renderPage();
             }, duration);
         }
         
@@ -512,16 +439,11 @@
                 </div>
 
                 ${buttonHtml}
-                ${!isCheckin ? `<button onclick="closeModal()" class="w-full mt-2 py-2 text-sm text-gray-400 hover:text-white transition">Close</button>` : ''}
+                <button onclick="document.getElementById('generic-modal').style.display='none'" class="w-full mt-2 py-2 text-sm text-gray-400 hover:text-white transition ${isCheckin ? 'hidden' : ''}">Close</button>
             `;
 
             modal.style.display = 'flex';
             if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('generic-modal');
-            modal.style.display = 'none';
         }
 
         // --- QUOTEX TASK LOGIC ---
@@ -552,7 +474,7 @@
         }
 
         function agreeAndRedirect() {
-            closeModal();
+            document.getElementById('generic-modal').style.display = 'none';
             
             // 1. Change status to prompt for ID entry
             globalState.tasks.quotex.status = 'pending_id'; 
@@ -623,14 +545,14 @@
                 </button>
             `;
 
-            showGenericModal(title, bodyHtml, buttonHtml, true);
+            showGenericModal(title, bodyHtml, buttonHtml, true); // Use true to hide generic close button for welcome modal
         }
 
         function claimWelcomeReward() {
             globalState.balance += WELCOME_REWARD;
             globalState.welcomeClaimed = true;
             localStorage.setItem('qtx_welcome_claimed', 'true');
-            closeModal();
+            document.getElementById('generic-modal').style.display = 'none';
             showNotification(`+${WELCOME_REWARD.toFixed(1)} ${QTX_TOKEN} Welcome Bonus!`);
             renderPage();
         }
@@ -751,8 +673,10 @@
             globalState.dailyCheckin.streak = (globalState.dailyCheckin.streak % 30) + 1;
             globalState.dailyCheckin.lastClaim = Date.now();
             
-            closeModal();
+            document.getElementById('generic-modal').style.display = 'none';
+            
             showNotification(`Daily Check-in Success! +${reward} ${QTX_TOKEN}`, 4000);
+
             renderPage();
         }
 
@@ -792,6 +716,7 @@
             }
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
+
 
         // --- FARMING LOGIC ---
 
@@ -963,6 +888,7 @@
             renderPage();
         }
 
+
         function handleTierClaim(index) {
             const tier = globalState.referralTiers[index];
             if (globalState.referralCount < tier.count || tier.claimed) return;
@@ -1060,13 +986,14 @@
                 </div>
             `;
             const buttonHtml = `
-                <button onclick="closeModal()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-sky-400 text-white font-bold rounded-xl shadow-lg hover:from-blue-500 transition">
+                <button onclick="document.getElementById('generic-modal').style.display='none'" class="w-full py-3 bg-gradient-to-r from-blue-600 to-sky-400 text-white font-bold rounded-xl shadow-lg hover:from-blue-500 transition">
                     Close
                 </button>
             `;
 
             showGenericModal(title, bodyHtml, buttonHtml);
         }
+
 
         // --- PAGE RENDERERS ---
 
@@ -1534,7 +1461,7 @@
 
             const qtxAmount = tonAmount * PRESALE_RATE;
 
-            // MOCK TON TRANSACTION
+            // MOCK TON TRANSACTION (In real app, this would be actual blockchain transaction)
             globalState.balance += qtxAmount;
             globalState.presaleHistory.unshift({
                 ton: tonAmount.toFixed(2),
@@ -1542,7 +1469,7 @@
                 timestamp: new Date().toLocaleTimeString(),
             });
 
-            // Check for Presale Bonus Task completion
+            // NEW: Check for Presale Bonus Task completion
             if (tonAmount >= 0.1 && !globalState.tasks.presaleBonus.metRequirement) {
                 globalState.tasks.presaleBonus.metRequirement = true;
                 showNotification("Presale criteria met! Claim your bonus on the Tasks page.", 6000);
@@ -1675,7 +1602,9 @@
                     <p class="text-sm text-yellow-400 font-semibold">Status: NOT CONNECTED</p>
                     <p class="text-xs text-gray-400 mt-1">Connect your TON wallet to participate in presale and receive airdrop.</p>
                 </div>
-                <div id="ton-connect-button" class="ton-connect-button"></div>
+                <button onclick="connectWallet()" class="manual-connect-btn">
+                    <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Connect TON Wallet
+                </button>
                 `;
 
              return `
@@ -1808,19 +1737,13 @@
             `;
         }
 
+
         function renderPage() {
             const app = document.getElementById('app');
             let content = '';
 
-            // Remove existing notification
-            const existingNotification = document.querySelector('.notification-toast');
-            if (existingNotification) {
-                existingNotification.remove();
-            }
-
-            // Add notification if exists
             const notificationHtml = globalState.notification ? `
-                <div class="notification-toast fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-full shadow-2xl animate-pulse text-sm font-semibold transition-opacity duration-300">
+                <div class="fixed top-2 left-1/2 transform -translate-x-1/2 z-50 bg-green-600 text-white px-4 py-2 rounded-full shadow-2xl animate-pulse text-sm font-semibold transition-opacity duration-300">
                     ${globalState.notification}
                 </div>
             ` : '';
@@ -1852,7 +1775,6 @@
             
             if (typeof lucide !== 'undefined') lucide.createIcons();
             
-            // Initialize specific page components
             if (globalState.currentPage === 'home') {
                 renderFarmButton();
                 renderCheckinButton();
@@ -1860,56 +1782,60 @@
             if (globalState.currentPage === 'presale') {
                 updatePresaleEstimate();
             }
-            if (globalState.currentPage === 'wallet') {
-                // Initialize TON Connect button if needed
-                if (!globalState.connectedWallet && !tonConnectUI) {
-                    console.log("🔄 Initializing TON Connect from renderPage");
-                    setTimeout(() => {
-                        initTonConnect();
-                    }, 100);
-                }
-            }
         }
 
         // --- INITIALIZATION ---
         function loadState() {
-            // Check if we have saved state
-            const savedBalance = localStorage.getItem('qtx_balance');
-            if (savedBalance) {
-                // Load saved state
-                globalState.balance = parseFloat(savedBalance);
-                globalState.farmClaimCount = parseInt(localStorage.getItem('qtx_farm_claim_count') || '0');
-                globalState.referralCount = parseInt(localStorage.getItem('qtx_referral_count') || '0');
-                globalState.farmReadyTime = parseInt(localStorage.getItem('qtx_farm_ready_time') || '0');
-                
-                const savedDailyCheckin = localStorage.getItem('qtx_daily_checkin');
-                if (savedDailyCheckin) {
-                    globalState.dailyCheckin = JSON.parse(savedDailyCheckin);
-                }
-                
-                const savedBoost = localStorage.getItem('qtx_boost_active');
-                if (savedBoost) {
-                    globalState.activeBoost = JSON.parse(savedBoost);
-                }
-                
-                const savedPresaleHistory = localStorage.getItem('qtx_presale_history');
-                if (savedPresaleHistory) {
-                    globalState.presaleHistory = JSON.parse(savedPresaleHistory);
-                }
-                
-                const savedQuotexTask = localStorage.getItem('qtx_quotex_task');
-                if (savedQuotexTask) {
-                    globalState.tasks.quotex = JSON.parse(savedQuotexTask);
-                }
-                
-                const savedPresaleBonusTask = localStorage.getItem('qtx_presale_bonus_task');
-                if (savedPresaleBonusTask) {
-                    globalState.tasks.presaleBonus = JSON.parse(savedPresaleBonusTask);
-                }
-                
-                globalState.connectedWallet = localStorage.getItem('qtx_connected_wallet');
-                globalState.welcomeClaimed = localStorage.getItem('qtx_welcome_claimed') === 'true';
-            }
+            // Clear all localStorage to reset state
+            localStorage.clear();
+            
+            // Set all values to initial zero state
+            globalState = {
+                currentPage: 'home',
+                userId: 'user-' + Math.random().toString(36).substring(2, 9),
+                balance: 0.0,
+                farmClaimCount: 0,
+                referralCount: 0,
+                currentRank: 0,
+                connectedWallet: null,
+                walletBalance: 0.0,
+                farmReadyTime: 0,
+                tasks: {
+                    joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
+                    followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
+                    joinCommunity: { completed: false, reward: 7.0, title: 'Join Telegram Community' },
+                    quotex: { 
+                        completed: false, 
+                        reward: 12.5, 
+                        title: 'Join Quotex platform', 
+                        status: 'initial', 
+                        quotexId: null, 
+                        idEntryTime: 0 
+                    },
+                    presaleBonus: { 
+                        completed: false, 
+                        reward: 15.0, 
+                        title: 'Presale Purchase Bonus (Min 0.1 TON)',
+                        metRequirement: false,
+                    },
+                },
+                referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)),
+                presaleHistory: [],
+                activeBoost: {
+                    multiplier: 1.0,
+                    endTime: 0,
+                    name: 'None',
+                },
+                boostFaqOpen: false,
+                presaleFaqOpen: false,
+                whitepaperOpen: false,
+                dailyCheckin: {
+                    streak: 0,
+                    lastClaim: 0,
+                },
+                notification: null,
+                welcomeClaimed: false,
+            };
         }
 
         function saveState() {
@@ -1922,35 +1848,25 @@
             localStorage.setItem('qtx_presale_history', JSON.stringify(globalState.presaleHistory));
             localStorage.setItem('qtx_quotex_task', JSON.stringify(globalState.tasks.quotex));
             localStorage.setItem('qtx_presale_bonus_task', JSON.stringify(globalState.tasks.presaleBonus));
-            localStorage.setItem('qtx_welcome_claimed', globalState.welcomeClaimed.toString());
 
             if (globalState.connectedWallet) {
                 localStorage.setItem('qtx_connected_wallet', globalState.connectedWallet);
             }
         }
 
-        // Wait for DOM to be fully loaded before initializing
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log("🚀 DOM Content Loaded - Initializing app");
+        window.onload = function() {
             loadState();
             startTimers();
             renderPage();
             
             if (!globalState.welcomeClaimed) {
-                setTimeout(showWelcomePopup, 500);
+                // Delay showing the welcome popup slightly so the main app renders first
+                setTimeout(showWelcomePopup, 500); 
             }
             
             // Save state periodically
             setInterval(saveState, 5000);
-            
-            // Initialize TON Connect on app startup
-            console.log("🔄 Initializing TON Connect on app startup");
-            setTimeout(() => {
-                if (!globalState.connectedWallet) {
-                    initTonConnect();
-                }
-            }, 1000);
-        });
+        };
     </script>
 </body>
 </html>
