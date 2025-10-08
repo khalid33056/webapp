@@ -149,13 +149,21 @@
             align-items: center;
             justify-content: center;
         }
+
+        /* Page transition */
+        .page-content {
+            display: none;
+        }
+        .page-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
 
     <!-- Main App Container -->
     <div id="app" class="min-h-screen pb-20 max-w-md mx-auto relative custom-scroll">
-        <!-- Content will be rendered here -->
+        <!-- All pages will be rendered here and shown/hidden based on navigation -->
     </div>
 
     <!-- Generic Full-Screen Modal (Used for Quotex Warning and Check-in) -->
@@ -194,9 +202,6 @@
             </button>
         </div>
     </nav>
-
-    <!-- TON Connect UI Script -->
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
 
     <script>
         // --- GLOBAL STATE & CONFIGURATION ---
@@ -316,175 +321,24 @@
             welcomeClaimed: false, // Reset welcome claim status
         };
 
-        // --- TON CONNECT FIXED IMPLEMENTATION ---
-        let tonConnectUI = null;
-        let isTonConnectInitialized = false;
+        // --- SIMPLE WALLET CONNECTION SYSTEM ---
+        // Removed TON Connect completely to avoid disappearing issues
 
-        // Fixed TON Connect initialization with proper timing
-        function initializeTonConnect() {
-            if (isTonConnectInitialized) return;
-
-            try {
-                console.log("Initializing TON Connect...");
-                
-                // Create a stable container for TON Connect button
-                const walletPageContainer = document.getElementById('wallet-page-container');
-                if (!walletPageContainer) {
-                    console.log("Wallet page container not found, retrying...");
-                    setTimeout(initializeTonConnect, 100);
-                    return;
-                }
-
-                // Check if button container already exists
-                let buttonContainer = document.getElementById('ton-connect-button-container');
-                if (!buttonContainer) {
-                    buttonContainer = document.createElement('div');
-                    buttonContainer.id = 'ton-connect-button-container';
-                    buttonContainer.className = 'ton-connect-button';
-                    
-                    // Insert at the correct position in wallet page
-                    const walletSection = document.querySelector('[data-wallet-section]');
-                    if (walletSection) {
-                        walletSection.appendChild(buttonContainer);
-                    } else {
-                        walletPageContainer.insertBefore(buttonContainer, walletPageContainer.firstChild);
-                    }
-                }
-
-                // Initialize TON Connect with proper configuration
-                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: 'https://tranquil-licorice-9cec1c.netlify.app/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button-container',
-                    actionsConfiguration: {
-                        twaReturnUrl: 'https://t.me/Quotexhouse_bot'
-                    }
-                });
-
-                // Set up status change listener
-                tonConnectUI.onStatusChange((wallet) => {
-                    console.log("TON Connect status changed:", wallet);
-                    if (wallet) {
-                        globalState.connectedWallet = wallet.account.address;
-                        globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
-                        showNotification("TON Wallet Connected Successfully!", 3000);
-                    } else {
-                        globalState.connectedWallet = null;
-                        globalState.walletBalance = 0.0;
-                    }
-                    // Re-render only the wallet section, not the entire page
-                    renderWalletSection();
-                });
-
-                // Handle connection restoration
-                tonConnectUI.connectionRestored.then(() => {
-                    console.log("TON Connect connection restored");
-                }).catch(error => {
-                    console.log("TON Connect connection restoration failed:", error);
-                });
-
-                isTonConnectInitialized = true;
-                console.log("TON Connect initialized successfully");
-                
-            } catch (error) {
-                console.error("TON Connect initialization failed:", error);
-                // Fallback to manual connection
-                showNotification("Using manual wallet connection", 3000);
-            }
-        }
-
-        function disconnectWallet() {
-            if (tonConnectUI) {
-                tonConnectUI.disconnect();
-                globalState.connectedWallet = null;
-                globalState.walletBalance = 0.0;
-                showNotification("Wallet Disconnected", 3000);
-                renderWalletSection();
-            }
-        }
-
-        // Manual wallet connection fallback
-        function connectWalletManually() {
-            const title = "Connect TON Wallet";
-            const bodyHtml = `
-                <div class="space-y-3">
-                    <p class="text-gray-300 text-sm mb-4">Choose your wallet to connect:</p>
-                    
-                    <button onclick="connectTelegramWallet()" class="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                            <span>Telegram Wallet</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="connectTonkeeper()" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
-                            <span>Tonkeeper</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="connectMyTonWallet()" class="w-full p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="wallet" class="w-5 h-5 mr-3"></i>
-                            <span>MyTonWallet</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="mockWalletConnection()" class="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="cpu" class="w-5 h-5 mr-3"></i>
-                            <span>Demo Wallet (Test Mode)</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            `;
-            const buttonHtml = `
-                <button onclick="closeModal()" class="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition">
-                    Cancel
-                </button>
-            `;
-
-            showGenericModal(title, bodyHtml, buttonHtml);
-            lucide.createIcons();
-        }
-
-        function connectTelegramWallet() {
-            closeModal();
-            showNotification("Opening Telegram Wallet...", 3000);
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
-
-        function connectTonkeeper() {
-            closeModal();
-            showNotification("Opening Tonkeeper...", 3000);
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
-
-        function connectMyTonWallet() {
-            closeModal();
-            showNotification("Connecting to MyTonWallet...", 3000);
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
-
-        function mockWalletConnection() {
-            // Mock wallet connection for demo purposes
+        function connectWallet() {
+            // Simple mock wallet connection
             const mockAddress = 'EQ' + Math.random().toString(36).substring(2, 20).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
             globalState.connectedWallet = mockAddress;
             globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
             
-            closeModal();
             showNotification("TON Wallet Connected Successfully!", 3000);
-            renderWalletSection();
+            renderPage();
+        }
+
+        function disconnectWallet() {
+            globalState.connectedWallet = null;
+            globalState.walletBalance = 0.0;
+            showNotification("Wallet Disconnected", 3000);
+            renderPage();
         }
 
         // --- CORE UI FUNCTIONS ---
@@ -1096,50 +950,6 @@
             showGenericModal(title, bodyHtml, buttonHtml);
         }
 
-        // --- WALLET SECTION RENDERER (FIXED) ---
-        function renderWalletSection() {
-            const walletContainer = document.querySelector('[data-wallet-section]');
-            if (!walletContainer) return;
-
-            const walletStatus = globalState.connectedWallet ? 
-                `
-                <div class="bg-green-900/50 p-4 rounded-xl border border-green-600 shadow-inner mb-4">
-                    <p class="text-sm text-green-400 font-semibold mb-2">Status: CONNECTED</p>
-                    <p class="text-xs text-white break-all mb-2">Address: ${globalState.connectedWallet}</p>
-                    <p class="text-sm text-yellow-300">Balance: ${globalState.walletBalance.toFixed(4)} TON</p>
-                </div>
-                <button onclick="disconnectWallet()" class="w-full py-3 bg-gradient-to-r from-red-600 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-red-500 transition transform active:scale-[0.98]">
-                    <i data-lucide="log-out" class="w-5 h-5 inline mr-2"></i> Disconnect Wallet
-                </button>
-                ` 
-                : 
-                `
-                <div class="bg-yellow-900/50 p-4 rounded-xl border border-yellow-600 shadow-inner mb-4">
-                    <p class="text-sm text-yellow-400 font-semibold">Status: NOT CONNECTED</p>
-                    <p class="text-xs text-gray-400 mt-1">Connect your TON wallet to participate in presale and receive airdrop.</p>
-                </div>
-                <div id="ton-connect-button-container" class="ton-connect-button"></div>
-                <button onclick="connectWalletManually()" class="manual-connect-btn">
-                    <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Manual Wallet Connection
-                </button>
-                `;
-
-            walletContainer.innerHTML = `
-                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-blue-500/50">
-                    <h3 class="text-xl font-bold text-blue-400 mb-3 flex items-center professional-heading">
-                        <i data-lucide="link" class="w-5 h-5 mr-2"></i>TON Wallet Connection
-                    </h3>
-                    ${walletStatus}
-                    <p class="text-xs text-gray-500 mt-3 text-center">Required for Airdrop distribution and Presale purchases.</p>
-                </div>
-            `;
-
-            // Re-initialize TON Connect if needed
-            if (!globalState.connectedWallet && !isTonConnectInitialized) {
-                setTimeout(initializeTonConnect, 100);
-            }
-        }
-
         // --- PAGE RENDERERS ---
 
         function renderHomePage() {
@@ -1219,99 +1029,497 @@
         }
 
         function renderTasksPage() {
-            // ... (tasks page code remains the same as before)
-            // Keeping it short to focus on the wallet fix
+            const taskKeys = Object.keys(globalState.tasks);
+
+            const referralTiersHtml = globalState.referralTiers.map((tier, index) => {
+                const canClaim = globalState.referralCount >= tier.count && !tier.claimed;
+                const tierClass = tier.claimed ? 'bg-green-800/50 border-green-500' : (canClaim ? 'bg-yellow-800/50 border-yellow-500' : 'bg-gray-700 border-gray-600');
+                
+                return `
+                    <div class="flex justify-between items-center p-3 rounded-lg mb-3 ${tierClass} border shadow-md">
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-white">Invite ${tier.count} Friends</span>
+                            <span class="text-sm text-gray-400">Bonus: +${tier.reward.toFixed(1)} ${QTX_TOKEN}</span>
+                            <span class="text-xs ${globalState.referralCount >= tier.count ? 'text-green-300' : 'text-red-300'} mt-1">
+                                Progress: ${globalState.referralCount} / ${tier.count}
+                            </span>
+                        </div>
+                        <button 
+                            onclick="handleTierClaim(${index})" 
+                            ${canClaim ? '' : 'disabled'}
+                            class="px-4 py-2 text-sm font-bold rounded-full transition-colors min-w-[120px] flex-shrink-0 
+                                ${tier.claimed ? 'bg-gray-500 cursor-not-allowed' : (canClaim ? 'bg-green-600 hover:bg-green-700 shadow-md' : 'bg-gray-500 cursor-not-allowed')}">
+                            ${tier.claimed ? 'Claimed' : (canClaim ? 'Claim Bonus' : 'Incomplete')}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            
+            // Render the standard task list
+            const standardTasksHtml = ['joinTelegram', 'followTwitter', 'joinCommunity'].map(key => {
+                const task = globalState.tasks[key];
+                const icon = key.includes('Telegram Channel') ? 'send' : (key.includes('Community') ? 'users' : 'twitter');
+                const link = key.includes('Telegram Channel') ? 'https://t.me/yourchannel' : (key.includes('Community') ? 'https://t.me/yourcommunity' : 'https://twitter.com/yourhandle');
+                return `
+                    <div class="flex justify-between items-center bg-gray-800 p-3 rounded-xl mb-3 border border-gray-700 shadow-inner">
+                        <div class="flex items-center space-x-3">
+                            <i data-lucide="${icon}" class="w-6 h-6 text-blue-400"></i>
+                            <div class="flex flex-col">
+                                <span class="font-semibold text-white">${task.title}</span>
+                                <span class="text-sm text-gray-400">Reward: <span class="text-yellow-300">+${task.reward.toFixed(1)} ${QTX_TOKEN}</span></span>
+                            </div>
+                        </div>
+                        <a href="${link}" target="_blank" onclick="${task.completed ? '' : `handleTaskClaim('${key}')`}"
+                            class="px-4 py-2 text-sm font-bold rounded-full transition-colors text-center min-w-[120px] flex-shrink-0
+                                ${task.completed ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}">
+                            ${task.completed ? 'Done' : 'Go & Claim'}
+                        </a>
+                    </div>
+                `;
+            }).join('');
+            
+            // --- QUOTEX TASK RENDER LOGIC ---
+            const qtxTask = globalState.tasks.quotex;
+            let qtxTaskActionHtml = '';
+            let qtxTaskStatusText = '';
+
+            switch (qtxTask.status) {
+                case 'initial':
+                    qtxTaskActionHtml = `
+                        <button onclick="handleQuotexJoin()" 
+                            class="px-4 py-2 text-sm font-bold rounded-full transition-colors bg-green-600 hover:bg-green-700 min-w-[120px] flex-shrink-0">
+                            Join & Verify
+                        </button>
+                    `;
+                    qtxTaskStatusText = 'Not Started';
+                    break;
+
+                case 'pending_id':
+                    // Using w-36 to give enough space for input and button, and flex-shrink-0 to maintain width
+                    qtxTaskActionHtml = `
+                        <div class="flex flex-col space-y-2 w-36 flex-shrink-0">
+                            <input type="text" id="quotex-id-input" placeholder="Enter ID"
+                                class="p-2 text-sm rounded-lg bg-gray-600 text-white border border-gray-700 focus:border-blue-500 placeholder-gray-400">
+                            <button onclick="submitQuotexId()" 
+                                class="py-2 text-sm font-bold rounded-lg transition-colors bg-blue-600 hover:bg-blue-700 min-w-[120px]">
+                                Submit ID
+                            </button>
+                        </div>
+                    `;
+                    qtxTaskStatusText = 'Enter your Quotex ID';
+                    break;
+
+                case 'loading':
+                    const msRemaining = qtxTask.idEntryTime + QUOTEX_REWARD_MS - Date.now();
+                    const timeRemaining = formatTimeRemaining(msRemaining);
+                    qtxTaskActionHtml = `
+                        <div class="flex items-center justify-center space-x-2 text-orange-400 py-2 min-w-[120px] flex-shrink-0">
+                            <i data-lucide="loader-circle" class="w-5 h-5 animate-spin"></i>
+                            <span class="font-semibold text-sm">Pending</span>
+                        </div>
+                    `;
+                    qtxTaskStatusText = 'Verification in Progress (' + timeRemaining + ')';
+                    break;
+
+                case 'complete':
+                    qtxTaskActionHtml = `
+                        <span class="px-4 py-2 text-sm font-bold rounded-full bg-gray-500 cursor-not-allowed text-white text-center min-w-[120px] flex-shrink-0">
+                            Completed
+                        </span>
+                    `;
+                    qtxTaskStatusText = 'Reward Credited';
+                    break;
+            }
+
+            const qtxTaskHtml = `
+                <div class="flex justify-between items-center bg-gray-800 p-3 rounded-xl mb-3 border border-pink-700 shadow-inner">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="trending-up" class="w-6 h-6 text-pink-400"></i>
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-white">${qtxTask.title}</span>
+                            <span class="text-sm text-gray-400">Reward: 
+                                <span class="text-yellow-300">+${qtxTask.reward.toFixed(1)} ${QTX_TOKEN}</span>
+                            </span>
+                            <span class="text-xs text-gray-500 mt-1">Status: ${qtxTaskStatusText}</span>
+                        </div>
+                    </div>
+                    ${qtxTaskActionHtml}
+                </div>
+            `;
+            // --- END QUOTEX TASK RENDER LOGIC ---
+            
+            // --- NEW PRESALE BONUS TASK RENDER LOGIC ---
+            const pbTask = globalState.tasks.presaleBonus;
+            const pbTaskStatusText = pbTask.metRequirement ? (pbTask.completed ? 'Reward Claimed' : 'Ready to Claim') : 'Pending Purchase';
+            const pbTaskActionHtml = pbTask.completed ? 
+                `<span class="px-4 py-2 text-sm font-bold rounded-full bg-gray-500 cursor-not-allowed text-white text-center min-w-[120px] flex-shrink-0">Claimed</span>` 
+                : (pbTask.metRequirement ? 
+                    `<button onclick="handlePresaleBonusClaim()" class="px-4 py-2 text-sm font-bold rounded-full transition-colors bg-purple-600 hover:bg-purple-700 min-w-[120px] flex-shrink-0">Claim Reward</button>` 
+                    : 
+                    `<button onclick="navigateTo('presale')" class="px-4 py-2 text-sm font-bold rounded-full transition-colors bg-blue-600 hover:bg-blue-700 min-w-[120px] flex-shrink-0">Go to Presale</button>`
+                );
+
+            const pbTaskHtml = `
+                <div class="flex justify-between items-center bg-gray-800 p-3 rounded-xl mb-3 border border-purple-700 shadow-inner">
+                    <div class="flex items-center space-x-3">
+                        <i data-lucide="rocket" class="w-6 h-6 text-purple-400"></i>
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-white">${pbTask.title}</span>
+                            <span class="text-sm text-gray-400">Reward: 
+                                <span class="text-yellow-300">+${pbTask.reward.toFixed(1)} ${QTX_TOKEN}</span>
+                            </span>
+                            <span class="text-xs text-gray-500 mt-1">Status: ${pbTaskStatusText}</span>
+                        </div>
+                    </div>
+                    ${pbTaskActionHtml}
+                </div>
+            `;
+            // --- END NEW PRESALE BONUS TASK RENDER LOGIC ---
+
+
             return `
                 <header class="p-4 pt-6 text-center">
                     <h2 class="text-2xl font-bold text-white professional-heading">Airdrop Tasks</h2>
                     <p class="text-sm text-gray-400 mt-1">Complete tasks to instantly boost your ${QTX_TOKEN} balance!</p>
                 </header>
-                <!-- Tasks content... -->
+                
+                <!-- Bonus Tasks Section -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-pink-400/50">
+                    <h3 class="text-xl font-bold text-pink-400 mb-3 professional-heading">Bonus Opportunities</h3>
+                    
+                    <!-- Presale Bonus Task -->
+                    ${pbTaskHtml}
+                    
+                    <!-- Quotex Platform Task -->
+                    ${qtxTaskHtml}
+                </div>
+
+
+                <!-- Referral Section -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-blue-400/50">
+                    <h3 class="text-xl font-bold text-blue-400 mb-3 professional-heading">Invite & Earn Commission</h3>
+                    
+                    <div class="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                        <p class="text-white font-semibold flex justify-between items-center">
+                            Your Invites: <span class="text-green-400 text-xl">${globalState.referralCount}</span>
+                        </p>
+                        <p class="text-sm text-gray-400 mt-2">
+                            Earn 10% commission on all QTX claimed by your friends!
+                        </p>
+                    </div>
+
+                    <div class="flex space-x-3 mb-4">
+                        <button onclick="shareReferralLink()" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-sky-400 text-white font-bold rounded-xl hover:from-sky-500 transition shadow-md text-sm">
+                            <i data-lucide="send" class="w-4 h-4 inline mr-1"></i> Share Link
+                        </button>
+                        <button onclick="copyReferralLink()" class="flex-1 py-3 bg-gray-600 text-white font-bold rounded-xl hover:bg-gray-700 transition shadow-md text-sm">
+                            <i data-lucide="copy" class="w-4 h-4 inline mr-1"></i> Copy Link
+                        </button>
+                    </div>
+
+                    <h4 class="text-lg font-bold text-blue-400 mb-3 border-t border-gray-700 pt-4">Referral Milestones</h4>
+                    ${referralTiersHtml}
+                </div>
+
+                <!-- Standard Tasks -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-green-400/50">
+                    <h3 class="text-xl font-bold text-green-400 mb-3 professional-heading">Community Tasks</h3>
+                    ${standardTasksHtml}
+                </div>
             `;
         }
 
         function renderPresalePage() {
-            // ... (presale page code remains the same as before)
+            const rate = PRESALE_RATE.toFixed(1);
+            const allocationKeys = Object.keys(TOKEN_ALLOCATION);
+            
+            const allocationHtml = allocationKeys.map(key => {
+                const data = TOKEN_ALLOCATION[key];
+                const isFarming = key === 'farmingRewards';
+                const isLiquidity = key === 'liquidityEcosystem';
+                const color = isFarming ? 'bg-green-500' : (key === 'presale' ? 'bg-pink-500' : (key === 'team' ? 'bg-red-500' : (isLiquidity ? 'bg-purple-500' : 'bg-blue-500')));
+                
+                let displayName = '';
+                if (key === 'farmingRewards') {
+                    displayName = 'Airdrop & Farming Rewards';
+                } else if (key === 'liquidityEcosystem') {
+                    displayName = 'Liquidity & Ecosystem (luqadalaty)'; 
+                } else {
+                    displayName = key.charAt(0).toUpperCase() + key.slice(1);
+                }
+
+                let detailsHtml = '';
+                if (isFarming) {
+                    detailsHtml = `
+                        <div class="ml-2 mt-2 space-y-1 p-2 bg-gray-800 rounded-lg border border-gray-700">
+                            <p class="text-xs font-bold text-white mb-1">Breakdown (25%):</p>
+                            ${data.details.map(d => `
+                                <div class="flex justify-between text-xs text-gray-300">
+                                    <span>${d.name} (${d.percentage}%)</span>
+                                    <span class="font-semibold">${(d.tokens / 1000000).toFixed(2)}M QTX</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-semibold text-white">${displayName}</span>
+                            <span class="font-bold text-lg text-yellow-300">${data.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-gray-600 rounded-full h-3">
+                            <div class="h-3 rounded-full ${color}" style="width: ${data.percentage}%"></div>
+                        </div>
+                        ${detailsHtml}
+                    </div>
+                `;
+            }).join('');
+
+
             return `
                 <header class="p-4 pt-6 text-center">
                     <h2 class="text-2xl font-bold text-white professional-heading">Exclusive QTX Presale</h2>
                     <p class="text-sm text-gray-400 mt-1">Secure ${QTX_TOKEN} at the best rate before listing.</p>
                 </header>
-                <!-- Presale content... -->
+
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-pink-400/50">
+                    <div class="flex flex-col items-center justify-center p-4 mb-4 bg-gray-800 rounded-xl border border-pink-400 shadow-inner">
+                        <span class="text-xl text-gray-400 mb-1">Current Rate:</span>
+                        <div class="flex items-center">
+                            <span class="text-4xl font-black text-white">1 TON</span>
+                            <i data-lucide="arrow-right" class="w-8 h-8 mx-4 text-pink-400"></i>
+                            <span class="text-4xl font-black text-yellow-300">${rate} ${QTX_TOKEN}</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-lg font-bold text-white mb-2">Purchase QTX</h3>
+                    
+                    <input type="number" id="ton-input" placeholder="Enter TON amount (Min 0.1)" oninput="updatePresaleEstimate()"
+                        class="w-full p-3 rounded-lg bg-gray-800 text-white border border-gray-600 mb-3 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    
+                    <div class="text-right text-sm mb-3">
+                        <span class="text-gray-400">Est. Reward:</span>
+                        <span id="qtx-estimate" class="text-xl font-bold text-green-400 ml-2">0.0 QTX</span>
+                    </div>
+                    
+                    <button onclick="handlePresaleBuy()" ${!globalState.connectedWallet ? 'disabled' : ''}
+                        class="w-full py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold rounded-xl shadow-lg hover:from-pink-600 transition transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="shopping-bag" class="w-5 h-5 inline mr-2"></i> 
+                        ${!globalState.connectedWallet ? 'Connect Wallet First' : 'Purchase with TON'}
+                    </button>
+                    
+                    ${!globalState.connectedWallet ? 
+                        '<p class="text-xs text-red-400 mt-2 text-center">Please connect your TON wallet first</p>' : 
+                        ''
+                    }
+                </div>
+
+                <!-- FAQ and Tokenomics Buttons (Side-by-Side) -->
+                <div class="mx-4 mb-4 grid grid-cols-2 gap-3">
+                    <button onclick="togglePresaleFaq()" class="flex items-center justify-center px-2 py-2 text-sm font-semibold rounded-xl transition-colors bg-purple-600 hover:bg-purple-700 shadow-lg text-white">
+                        <i data-lucide="help-circle" class="w-4 h-4 mr-2"></i>
+                        Presale FAQ
+                        <i data-lucide="${globalState.presaleFaqOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 ml-2"></i>
+                    </button>
+                    <!-- Button Name: Tokenomics & Statistics -->
+                    <button onclick="toggleWhitepaper()" class="flex items-center justify-center px-2 py-2 text-sm font-semibold rounded-xl transition-colors bg-blue-600 hover:bg-blue-700 shadow-lg text-white">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 mr-2"></i>
+                        Tokenomics & Statistics
+                        <i data-lucide="${globalState.whitepaperOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Tokenomics Section (Toggled by button) -->
+                <div id="whitepaper-content-card" class="card p-4 mx-4 shadow-xl mb-6 border-2 border-blue-500 ${globalState.whitepaperOpen ? '' : 'hidden'}">
+                    <h3 class="text-xl font-bold text-blue-400 mb-3 professional-heading flex items-center">
+                        <i data-lucide="bar-chart-2" class="w-5 h-5 mr-2"></i>
+                        QTX Tokenomics
+                    </h3>
+                    
+                    <div class="bg-gray-800 p-3 rounded-lg border border-gray-700 mb-4 text-center">
+                        <p class="text-sm text-gray-400">Total QTX Supply</p>
+                        <span class="text-3xl font-black text-white">${(TOTAL_SUPPLY / 1000000).toFixed(0)} Million Tokens</span>
+                    </div>
+
+                    <h4 class="text-lg font-bold text-white mb-2 border-b border-gray-700 pb-1">Token Allocation Breakdown:</h4>
+                    ${allocationHtml}
+                </div>
+
+                <!-- Presale FAQ Section (Toggled by button) -->
+                <div id="presale-faq-card" class="card p-4 mx-4 shadow-xl mb-6 border border-gray-700 ${globalState.presaleFaqOpen ? '' : 'hidden'}">
+                    <h3 class="text-xl font-bold text-yellow-400 mb-3 professional-heading flex items-center">
+                        <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                        In-Depth Presale Mechanics
+                    </h3>
+                    <div class="space-y-4 text-sm">
+                        <div>
+                            <p class="font-semibold text-white">Q: What is the QTX Presale opportunity and how does it work?</p>
+                            <p class="text-gray-400 mt-1 pl-3 border-l-2 border-yellow-500">
+                                The QTX Presale offers an exclusive opportunity for early adopters to acquire the QTX token at a preferential, fixed rate of 1 TON = ${PRESALE_RATE.toFixed(1)} QTX. Participants input the amount of TON they wish to spend, and the calculated QTX is instantly credited to your in-game balance after a mock transaction. This mechanism allows you to secure your tokens at the best available rate, maximizing your position before the public token launch and airdrop distribution.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-white">Q: How is the QTX price determined and why is it beneficial?</p>
+                            <p class="text-gray-400 mt-1 pl-3 border-l-2 border-yellow-500">
+                                The presale rate is fixed and guaranteed to ensure the lowest entry price for our committed community members. The rate of 1 TON = ${PRESALE_RATE.toFixed(1)} QTX represents a significant discount compared to the anticipated listing price on exchanges. By purchasing QTX now, you lock in this favorable valuation, allowing you to secure a large volume of tokens and potentially insulating your investment from early market volatility upon public listing.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-white">Q: Who is the provider of the QTX token and what is its utility?</p>
+                            <p class="text-gray-400 mt-1 pl-3 border-l-2 border-yellow-500">
+                                The QTX token is the native utility token for the entire ecosystem, proudly provided and backed by the established **Quotex binary trading platform**. QTX is designed to have significant utility post-launch, including being used for enhanced trading features, participation in exclusive rewards programs, and granting governance rights within the future Quotex community. Furthermore, the development and initial **liquidity pool** of QTX are strongly supported by major institutional investors, **Maxbit LLC** and **Awesamo LTD**, ensuring a stable foundation and robust launch. Participation in the presale is a direct investment in the long-term utility and success of the platform.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presale History -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border border-gray-700">
+                    <h3 class="text-xl font-bold text-white mb-3 professional-heading">Purchase History</h3>
+                    ${globalState.presaleHistory.length > 0 ? 
+                        globalState.presaleHistory.map(item => `
+                            <div class="flex justify-between text-sm py-2 border-b border-gray-700 last:border-b-0">
+                                <span class="text-gray-400">${item.timestamp}</span>
+                                <span class="font-semibold text-white">${item.ton} TON</span>
+                                <span class="text-green-400 font-bold">+${item.qtx} ${QTX_TOKEN}</span>
+                            </div>
+                        `).join('')
+                        : '<p class="text-gray-500 text-sm">No purchases yet. Start now!</p>'}
+                </div>
             `;
+        }
+        
+        function updatePresaleEstimate() {
+            const tonInput = document.getElementById('ton-input');
+            const estimateSpan = document.getElementById('qtx-estimate');
+            if (tonInput && estimateSpan) {
+                const tonAmount = parseFloat(tonInput.value) || 0;
+                const qtxEstimate = tonAmount * PRESALE_RATE;
+                estimateSpan.textContent = `${qtxEstimate.toFixed(2)} ${QTX_TOKEN}`;
+            }
+        }
+        
+        function handlePresaleBuy() {
+            if (!globalState.connectedWallet) {
+                showNotification("Please connect your TON wallet first!", 3000);
+                return;
+            }
+
+            const tonInput = document.getElementById('ton-input');
+            const tonAmount = parseFloat(tonInput.value);
+            if (!tonAmount || tonAmount <= 0.1) {
+                showNotification("Minimum purchase is 0.1 TON.", 3000);
+                return;
+            }
+
+            const qtxAmount = tonAmount * PRESALE_RATE;
+
+            // MOCK TON TRANSACTION
+            globalState.balance += qtxAmount;
+            globalState.presaleHistory.unshift({
+                ton: tonAmount.toFixed(2),
+                qtx: qtxAmount.toFixed(2),
+                timestamp: new Date().toLocaleTimeString(),
+            });
+
+            // Check for Presale Bonus Task completion
+            if (tonAmount >= 0.1 && !globalState.tasks.presaleBonus.metRequirement) {
+                globalState.tasks.presaleBonus.metRequirement = true;
+                showNotification("Presale criteria met! Claim your bonus on the Tasks page.", 6000);
+            }
+
+            showNotification(`Presale Success! ${tonAmount} TON bought ${qtxAmount.toFixed(2)} QTX.`, 5000);
+            tonInput.value = '';
+            updatePresaleEstimate();
+            renderPage();
         }
 
         function renderBoostPage() {
-            // ... (boost page code remains the same as before)
+            const boostDetails = getBoostDetails();
+
             return `
                 <header class="p-4 pt-6 text-center">
                     <h2 class="text-2xl font-bold text-white professional-heading">Mining Boost Packages</h2>
                     <p class="text-sm text-gray-400 mt-1">Increase your farming output up to 10x!</p>
                 </header>
-                <!-- Boost content... -->
-            `;
-        }
 
-        function renderWalletPage() {
-            return `
-                <div id="wallet-page-container">
-                    <header class="p-4 pt-6 text-center">
-                        <h2 class="text-2xl font-bold text-white professional-heading">Wallet & Security</h2>
-                        <p class="text-sm text-gray-400 mt-1">Connect your TON wallet for Presale and future Airdrop.</p>
-                    </header>
-
-                    <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-yellow-400/50 text-center">
-                        <h3 class="text-xl font-bold text-white mb-3">Total QTX Balance</h3>
-                        <span class="text-5xl font-black text-yellow-400">
-                            ${globalState.balance.toFixed(2)}
-                        </span>
-                        <span class="text-xl font-bold text-yellow-400 block mt-1">${QTX_TOKEN}</span>
+                <!-- Active Boost Status Bar -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 ${boostDetails.isActive ? 'border-green-500' : 'border-gray-500'}">
+                    <h3 class="text-lg font-bold text-white mb-2 flex items-center border-b border-gray-700 pb-2 professional-heading">
+                        <i data-lucide="gauge" class="w-5 h-5 mr-2 text-blue-400"></i>
+                        Current Multiplier: <span class="ml-2 ${boostDetails.isActive ? 'text-yellow-300' : 'text-gray-400'}">${boostDetails.multiplier}x</span>
+                    </h3>
+                    <div class="flex justify-between items-center text-sm text-gray-400 pt-2">
+                        <span>Time Remaining:</span>
+                        <span class="font-bold ${boostDetails.isActive ? 'text-green-400' : 'text-red-400'}">${boostDetails.timeRemaining}</span>
                     </div>
+                </div>
 
-                    <!-- Wallet Connection Section with stable container -->
-                    <div data-wallet-section>
-                        <!-- Wallet content will be rendered by renderWalletSection() -->
-                    </div>
-
-                    <!-- Supported Wallets Info -->
-                    <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-purple-500/50">
-                        <h3 class="text-xl font-bold text-purple-400 mb-3 professional-heading">Supported Wallets</h3>
-                        <div class="space-y-3 text-sm">
-                            <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                                <i data-lucide="message-circle" class="w-6 h-6 text-blue-400 mr-3"></i>
-                                <div>
-                                    <p class="font-semibold text-white">Telegram Wallet</p>
-                                    <p class="text-gray-400 text-xs">Built-in TON wallet in Telegram</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                                <i data-lucide="shield" class="w-6 h-6 text-green-400 mr-3"></i>
-                                <div>
-                                    <p class="font-semibold text-white">Tonkeeper</p>
-                                    <p class="text-gray-400 text-xs">Popular TON blockchain wallet</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                                <i data-lucide="wallet" class="w-6 h-6 text-yellow-400 mr-3"></i>
-                                <div>
-                                    <p class="font-semibold text-white">MyTonWallet</p>
-                                    <p class="text-gray-400 text-xs">Browser extension wallet</p>
-                                </div>
-                            </div>
+                <!-- Boost FAQ Button/Toggle -->
+                <div class="mx-4 mb-4 flex justify-center">
+                    <button onclick="toggleBoostFaq()" class="flex items-center px-4 py-2 text-sm font-semibold rounded-full transition-colors bg-purple-600 hover:bg-purple-700 shadow-lg text-white">
+                        <i data-lucide="help-circle" class="w-4 h-4 mr-2"></i>
+                        Booster Mechanics FAQ
+                        <i data-lucide="${globalState.boostFaqOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 ml-2"></i>
+                    </button>
+                </div>
+                
+                <!-- Boost FAQ Section (Toggled by button) -->
+                <div id="boost-faq-card" class="card p-4 mx-4 shadow-xl mb-6 border border-gray-700 ${globalState.boostFaqOpen ? '' : 'hidden'}">
+                    <h3 class="text-xl font-bold text-yellow-400 mb-3 professional-heading flex items-center">
+                        <i data-lucide="lightbulb" class="w-5 h-5 mr-2"></i>
+                        Booster Mechanics
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div>
+                            <p class="font-semibold text-white">Q: How do the Boosters increase my earnings?</p>
+                            <p class="text-gray-400 mt-1 pl-3 border-l-2 border-yellow-500">
+                                Boosters increase the amount of QTX you earn every farming cycle. When active, your base reward of ${BASE_FARMING_REWARD.toFixed(1)} QTX is multiplied by the package's factor. For example, a 2x boost grants a total reward of ${ (BASE_FARMING_REWARD * 2).toFixed(1)} QTX (plus commission) every 6 hours.
+                            </p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-white">Q: What happens when a Boost expires?</p>
+                            <p class="text-gray-400 mt-1 pl-3 border-l-2 border-yellow-500">
+                                Once the purchased duration (e.g., 24 hours) is complete, your multiplier will automatically revert to 1x. You will need to purchase a new package from the Boost section to reactivate a boosted earning rate.
+                            </p>
                         </div>
                     </div>
                 </div>
-            `;
-        }
 
-        function renderAirdropPage() {
-            // ... (airdrop page code remains the same as before)
-            return `
-                <header class="p-4 pt-6 text-center">
-                    <h2 class="text-2xl font-bold text-white professional-heading">QTX Airdrop Center</h2>
-                    <p class="text-sm text-gray-400 mt-1">Check your eligibility for the QTX token distribution.</p>
-                </header>
-                <!-- Airdrop content... -->
+
+                <!-- Packages List - New 2x2x1 Layout -->
+                <div class="grid grid-cols-2 gap-4 px-4 mb-6">
+                    ${BOOST_PACKAGES.map((pkg, index) => {
+                        const isCurrentActive = boostDetails.isActive && boostDetails.multiplier === pkg.multiplier;
+                        const iconColor = isCurrentActive ? 'text-green-400' : 'text-blue-400';
+                        // Last item (index 4) spans 2 columns
+                        const spanClass = index === BOOST_PACKAGES.length - 1 ? 'col-span-2' : 'col-span-1'; 
+                        
+                        return `
+                        <div class="${spanClass}">
+                            <div class="card p-4 shadow-xl boost-package ${isCurrentActive ? 'border-green-500' : 'border-blue-500'} h-full flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center mb-3">
+                                        <i data-lucide="${pkg.icon}" class="w-6 h-6 mr-2 ${iconColor}"></i>
+                                        <h4 class="text-lg font-bold text-white">${pkg.name}</h4>
+                                    </div>
+                                    <p class="text-3xl font-extrabold text-yellow-300 mb-4">${pkg.multiplier}x</p>
+                                    <div class="text-xs mb-4 space-y-1">
+                                        <p class="text-gray-300">Duration: <span class="font-semibold">${pkg.durationHours} Hours</span></p>
+                                        <p class="text-gray-300">Output: <span class="font-semibold">${(BASE_FARMING_REWARD * pkg.multiplier).toFixed(2)} QTX/Cycle</span></p>
+                                    </div>
+                                </div>
+                                <button onclick="handleBoostPurchase('${pkg.name}', ${pkg.multiplier}, ${pkg.durationHours})"
+                                    ${isCurrentActive || !globalState.connectedWallet ? 'disabled' : ''}
+                                    class="w-full py-2 mt-auto bg-gradient-to-r from-blue-600 to-sky-500 text-white font-bold rounded-lg hover:from-blue-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+                                    ${isCurrentActive ? 'Active' : (!globalState.connectedWallet ? 'Connect Wallet' : `Buy for ${pkg.priceTon.toFixed(2)} TON`)}
+                                </button>
+                            </div>
+                        </div>
+                    `;}).join('')}
+                </div>
             `;
         }
 
@@ -1329,6 +1537,159 @@
             };
             showNotification(`Boost Activated! ${multiplier}x for ${durationHours} hours.`, 5000);
             renderPage();
+        }
+
+        function renderWalletPage() {
+            const walletStatus = globalState.connectedWallet ? 
+                `
+                <div class="bg-green-900/50 p-4 rounded-xl border border-green-600 shadow-inner mb-4">
+                    <p class="text-sm text-green-400 font-semibold mb-2">Status: CONNECTED</p>
+                    <p class="text-xs text-white break-all mb-2">Address: ${globalState.connectedWallet}</p>
+                    <p class="text-sm text-yellow-300">Balance: ${globalState.walletBalance.toFixed(4)} TON</p>
+                </div>
+                <button onclick="disconnectWallet()" class="w-full py-3 bg-gradient-to-r from-red-600 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-red-500 transition transform active:scale-[0.98]">
+                    <i data-lucide="log-out" class="w-5 h-5 inline mr-2"></i> Disconnect Wallet
+                </button>
+                ` 
+                : 
+                `
+                <div class="bg-yellow-900/50 p-4 rounded-xl border border-yellow-600 shadow-inner mb-4">
+                    <p class="text-sm text-yellow-400 font-semibold">Status: NOT CONNECTED</p>
+                    <p class="text-xs text-gray-400 mt-1">Connect your TON wallet to participate in presale and receive airdrop.</p>
+                </div>
+                <button onclick="connectWallet()" class="manual-connect-btn">
+                    <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Connect TON Wallet
+                </button>
+                `;
+
+             return `
+                <header class="p-4 pt-6 text-center">
+                    <h2 class="text-2xl font-bold text-white professional-heading">Wallet & Security</h2>
+                    <p class="text-sm text-gray-400 mt-1">Connect your TON wallet for Presale and future Airdrop.</p>
+                </header>
+
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-yellow-400/50 text-center">
+                    <h3 class="text-xl font-bold text-white mb-3">Total QTX Balance</h3>
+                    <span class="text-5xl font-black text-yellow-400">
+                        ${globalState.balance.toFixed(2)}
+                    </span>
+                    <span class="text-xl font-bold text-yellow-400 block mt-1">${QTX_TOKEN}</span>
+                </div>
+
+                <!-- TonConnect Section -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-blue-500/50">
+                    <h3 class="text-xl font-bold text-blue-400 mb-3 flex items-center professional-heading">
+                        <i data-lucide="link" class="w-5 h-5 mr-2"></i>TON Wallet Connection
+                    </h3>
+                    ${walletStatus}
+                    <p class="text-xs text-gray-500 mt-3 text-center">Required for Airdrop distribution and Presale purchases.</p>
+                </div>
+
+                <!-- Supported Wallets Info -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-purple-500/50">
+                    <h3 class="text-xl font-bold text-purple-400 mb-3 professional-heading">Supported Wallets</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="message-circle" class="w-6 h-6 text-blue-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">Telegram Wallet</p>
+                                <p class="text-gray-400 text-xs">Built-in TON wallet in Telegram</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="shield" class="w-6 h-6 text-green-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">Tonkeeper</p>
+                                <p class="text-gray-400 text-xs">Popular TON blockchain wallet</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="wallet" class="w-6 h-6 text-yellow-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">MyTonWallet</p>
+                                <p class="text-gray-400 text-xs">Browser extension wallet</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAirdropPage() {
+            const completedTasks = Object.values(globalState.tasks).filter(t => t.completed).length;
+            // Exclude presaleBonus task from total for Airdrop progress, as it's a bonus, not core requirement
+            const coreTasks = Object.keys(globalState.tasks).filter(key => key !== 'presaleBonus').length; 
+            const completedCoreTasks = Object.keys(globalState.tasks).filter(key => key !== 'presaleBonus' && globalState.tasks[key].completed).length;
+
+            const progressColor = (progress) => progress >= 100 ? 'text-green-400' : 'text-orange-400';
+
+            const FARM_CLAIM_REQ = 25; // New Requirement
+            const INVITE_REQ = 3;      // New Requirement
+
+            const criteria = [
+                { 
+                    title: 'Connect TON Wallet', 
+                    current: globalState.connectedWallet ? 'Completed' : 'Pending', 
+                    progress: globalState.connectedWallet ? 100 : 0 
+                },
+                { 
+                    title: 'Farm Claim Consistency', 
+                    current: `${globalState.farmClaimCount} / ${FARM_CLAIM_REQ} Claims`, 
+                    progress: (globalState.farmClaimCount / FARM_CLAIM_REQ) * 100 
+                },
+                { 
+                    title: 'Community Tasks', 
+                    current: `${completedCoreTasks} / ${coreTasks} Completed`, 
+                    progress: (completedCoreTasks / coreTasks) * 100 
+                },
+                { 
+                    title: 'Invite Friends', 
+                    current: `Invited ${globalState.referralCount} Friends`, 
+                    progress: globalState.referralCount >= INVITE_REQ ? 100 : (globalState.referralCount / INVITE_REQ) * 100 
+                },
+            ];
+
+            return `
+                <header class="p-4 pt-6 text-center">
+                    <h2 class="text-2xl font-bold text-white professional-heading">QTX Airdrop Center</h2>
+                    <p class="text-sm text-gray-400 mt-1">Check your eligibility for the QTX token distribution.</p>
+                </header>
+
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-green-400/50">
+                    <h3 class="text-xl font-bold text-white mb-3 flex items-center border-b border-gray-700 pb-2 professional-heading">
+                        <i data-lucide="check-circle" class="w-5 h-5 mr-2 text-green-400"></i>
+                        Eligibility Criteria
+                    </h3>
+
+                    <div class="space-y-4 pt-2">
+                        ${criteria.map(c => `
+                            <div class="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-inner">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-semibold text-white text-sm">${c.title}</span>
+                                    <span class="text-xs font-bold ${progressColor(c.progress)}">${c.current}</span>
+                                </div>
+                                <div class="w-full bg-gray-600 rounded-full h-2">
+                                    <div 
+                                        class="h-2 rounded-full transition-all duration-500 ${c.progress >= 100 ? 'bg-green-500' : 'bg-blue-500'}" 
+                                        style="width: ${Math.min(c.progress, 100)}%"
+                                    ></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="card p-4 mx-4 shadow-xl mb-6 border border-gray-700">
+                    <h3 class="text-xl font-bold text-pink-400 mb-3 professional-heading">Important Airdrop Notes</h3>
+                    <p class="text-sm text-gray-400">
+                        Airdrop distribution will be calculated based on your total QTX earned and completion of all core criteria. Tokens will be sent to your connected TON Wallet.
+                    </p>
+                    <p class="text-sm text-yellow-400 mt-2">
+                        <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
+                        Make sure your TON wallet is connected to receive the airdrop!
+                    </p>
+                </div>
+            `;
         }
 
         function renderPage() {
@@ -1383,69 +1744,95 @@
             if (globalState.currentPage === 'presale') {
                 updatePresaleEstimate();
             }
-            if (globalState.currentPage === 'wallet') {
-                // Initialize wallet section with proper timing
-                setTimeout(() => {
-                    renderWalletSection();
-                    if (!isTonConnectInitialized) {
-                        initializeTonConnect();
-                    }
-                }, 100);
-            }
         }
 
         // --- INITIALIZATION ---
         function loadState() {
-            // Clear all localStorage to reset state
-            localStorage.clear();
-            
-            // Set all values to initial zero state
-            globalState = {
-                currentPage: 'home',
-                userId: 'user-' + Math.random().toString(36).substring(2, 9),
-                balance: 0.0,
-                farmClaimCount: 0,
-                referralCount: 0,
-                currentRank: 0,
-                connectedWallet: null,
-                walletBalance: 0.0,
-                farmReadyTime: 0,
-                tasks: {
-                    joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
-                    followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
-                    joinCommunity: { completed: false, reward: 7.0, title: 'Join Telegram Community' },
-                    quotex: { 
-                        completed: false, 
-                        reward: 12.5, 
-                        title: 'Join Quotex platform', 
-                        status: 'initial', 
-                        quotexId: null, 
-                        idEntryTime: 0 
+            // Check if we have saved state
+            const savedBalance = localStorage.getItem('qtx_balance');
+            if (savedBalance) {
+                // Load saved state
+                globalState.balance = parseFloat(savedBalance);
+                globalState.farmClaimCount = parseInt(localStorage.getItem('qtx_farm_claim_count') || '0');
+                globalState.referralCount = parseInt(localStorage.getItem('qtx_referral_count') || '0');
+                globalState.farmReadyTime = parseInt(localStorage.getItem('qtx_farm_ready_time') || '0');
+                
+                const savedDailyCheckin = localStorage.getItem('qtx_daily_checkin');
+                if (savedDailyCheckin) {
+                    globalState.dailyCheckin = JSON.parse(savedDailyCheckin);
+                }
+                
+                const savedBoost = localStorage.getItem('qtx_boost_active');
+                if (savedBoost) {
+                    globalState.activeBoost = JSON.parse(savedBoost);
+                }
+                
+                const savedPresaleHistory = localStorage.getItem('qtx_presale_history');
+                if (savedPresaleHistory) {
+                    globalState.presaleHistory = JSON.parse(savedPresaleHistory);
+                }
+                
+                const savedQuotexTask = localStorage.getItem('qtx_quotex_task');
+                if (savedQuotexTask) {
+                    globalState.tasks.quotex = JSON.parse(savedQuotexTask);
+                }
+                
+                const savedPresaleBonusTask = localStorage.getItem('qtx_presale_bonus_task');
+                if (savedPresaleBonusTask) {
+                    globalState.tasks.presaleBonus = JSON.parse(savedPresaleBonusTask);
+                }
+                
+                globalState.connectedWallet = localStorage.getItem('qtx_connected_wallet');
+                globalState.welcomeClaimed = localStorage.getItem('qtx_welcome_claimed') === 'true';
+            } else {
+                // Set all values to initial zero state
+                globalState = {
+                    currentPage: 'home',
+                    userId: 'user-' + Math.random().toString(36).substring(2, 9),
+                    balance: 0.0,
+                    farmClaimCount: 0,
+                    referralCount: 0,
+                    currentRank: 0,
+                    connectedWallet: null,
+                    walletBalance: 0.0,
+                    farmReadyTime: 0,
+                    tasks: {
+                        joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
+                        followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
+                        joinCommunity: { completed: false, reward: 7.0, title: 'Join Telegram Community' },
+                        quotex: { 
+                            completed: false, 
+                            reward: 12.5, 
+                            title: 'Join Quotex platform', 
+                            status: 'initial', 
+                            quotexId: null, 
+                            idEntryTime: 0 
+                        },
+                        presaleBonus: { 
+                            completed: false, 
+                            reward: 15.0, 
+                            title: 'Presale Purchase Bonus (Min 0.1 TON)',
+                            metRequirement: false,
+                        },
                     },
-                    presaleBonus: { 
-                        completed: false, 
-                        reward: 15.0, 
-                        title: 'Presale Purchase Bonus (Min 0.1 TON)',
-                        metRequirement: false,
+                    referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)),
+                    presaleHistory: [],
+                    activeBoost: {
+                        multiplier: 1.0,
+                        endTime: 0,
+                        name: 'None',
                     },
-                },
-                referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)),
-                presaleHistory: [],
-                activeBoost: {
-                    multiplier: 1.0,
-                    endTime: 0,
-                    name: 'None',
-                },
-                boostFaqOpen: false,
-                presaleFaqOpen: false,
-                whitepaperOpen: false,
-                dailyCheckin: {
-                    streak: 0,
-                    lastClaim: 0,
-                },
-                notification: null,
-                welcomeClaimed: false,
-            };
+                    boostFaqOpen: false,
+                    presaleFaqOpen: false,
+                    whitepaperOpen: false,
+                    dailyCheckin: {
+                        streak: 0,
+                        lastClaim: 0,
+                    },
+                    notification: null,
+                    welcomeClaimed: false,
+                };
+            }
         }
 
         function saveState() {
@@ -1458,6 +1845,7 @@
             localStorage.setItem('qtx_presale_history', JSON.stringify(globalState.presaleHistory));
             localStorage.setItem('qtx_quotex_task', JSON.stringify(globalState.tasks.quotex));
             localStorage.setItem('qtx_presale_bonus_task', JSON.stringify(globalState.tasks.presaleBonus));
+            localStorage.setItem('qtx_welcome_claimed', globalState.welcomeClaimed.toString());
 
             if (globalState.connectedWallet) {
                 localStorage.setItem('qtx_connected_wallet', globalState.connectedWallet);
@@ -1477,52 +1865,6 @@
             // Save state periodically
             setInterval(saveState, 5000);
         });
-
-        // Presale estimate function
-        function updatePresaleEstimate() {
-            const tonInput = document.getElementById('ton-input');
-            const estimateSpan = document.getElementById('qtx-estimate');
-            if (tonInput && estimateSpan) {
-                const tonAmount = parseFloat(tonInput.value) || 0;
-                const qtxEstimate = tonAmount * PRESALE_RATE;
-                estimateSpan.textContent = `${qtxEstimate.toFixed(2)} ${QTX_TOKEN}`;
-            }
-        }
-
-        function handlePresaleBuy() {
-            if (!globalState.connectedWallet) {
-                showNotification("Please connect your TON wallet first!", 3000);
-                return;
-            }
-
-            const tonInput = document.getElementById('ton-input');
-            const tonAmount = parseFloat(tonInput.value);
-            if (!tonAmount || tonAmount <= 0.1) {
-                showNotification("Minimum purchase is 0.1 TON.", 3000);
-                return;
-            }
-
-            const qtxAmount = tonAmount * PRESALE_RATE;
-
-            // MOCK TON TRANSACTION
-            globalState.balance += qtxAmount;
-            globalState.presaleHistory.unshift({
-                ton: tonAmount.toFixed(2),
-                qtx: qtxAmount.toFixed(2),
-                timestamp: new Date().toLocaleTimeString(),
-            });
-
-            // Check for Presale Bonus Task completion
-            if (tonAmount >= 0.1 && !globalState.tasks.presaleBonus.metRequirement) {
-                globalState.tasks.presaleBonus.metRequirement = true;
-                showNotification("Presale criteria met! Claim your bonus on the Tasks page.", 6000);
-            }
-
-            showNotification(`Presale Success! ${tonAmount} TON bought ${qtxAmount.toFixed(2)} QTX.`, 5000);
-            tonInput.value = '';
-            updatePresaleEstimate();
-            renderPage();
-        }
     </script>
 </body>
 </html>
