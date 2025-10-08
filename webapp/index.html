@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <!-- TON Connect SDK -->
-    <script src="https://unpkg.com/@tonconnect/ui@2.0.0-beta.5/dist/tonconnect-ui.min.js"></script>
+    <!-- TON Connect UI -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         /* Define Simple Blue Professional Colors */
         :root {
@@ -96,6 +96,12 @@
             height: 100%; 
         }
 
+        /* TON Connect Button Styling */
+        .ton-connect-button {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
         /* Custom scrollbar for better aesthetics */
         .custom-scroll {
             overflow-y: auto;
@@ -106,29 +112,6 @@
         .custom-scroll::-webkit-scrollbar-thumb {
             background-color: var(--primary-blue);
             border-radius: 2px;
-        }
-
-        /* TON Connect Button Styles */
-        .ton-connect-button {
-            background: linear-gradient(45deg, #0088cc, #0077ff);
-            border: none;
-            border-radius: 12px;
-            padding: 12px 24px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .ton-connect-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 119, 255, 0.4);
-        }
-
-        .ton-connect-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
         }
     </style>
 </head>
@@ -175,19 +158,6 @@
             </button>
         </div>
     </nav>
-
-    <!-- TON Connect Widget Container -->
-    <div id="ton-connect-widget" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4">
-        <div class="bg-[#1e293b] rounded-2xl p-6 max-w-sm w-full border-2 border-blue-500/50">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-white">Connect Wallet</h3>
-                <button onclick="document.getElementById('ton-connect-widget').classList.add('hidden')" class="text-gray-400 hover:text-white">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
-            </div>
-            <div id="ton-connect-container"></div>
-        </div>
-    </div>
 
     <script>
         // --- GLOBAL STATE & CONFIGURATION ---
@@ -245,19 +215,20 @@
         let globalState = {
             currentPage: 'home',
             
-            // User Data
+            // User Data - ALL RESET TO ZERO
             userId: 'user-' + Math.random().toString(36).substring(2, 9),
             balance: 0.0,
             farmClaimCount: 0, // Track the number of successful farm claims
             referralCount: 0,
-            currentRank: 123,
+            currentRank: 0, // Reset to 0
+            
             connectedWallet: null,
-            walletType: null,
+            walletBalance: 0.0,
             
             // Farming State
             farmReadyTime: 0, 
             
-            // Task State
+            // Task State - ALL RESET TO INCOMPLETE
             tasks: {
                 joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
                 followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
@@ -282,7 +253,7 @@
             },
             referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)), 
 
-            // Presale History (Mock Data)
+            // Presale History (Empty)
             presaleHistory: [],
             
             // Boost State
@@ -295,7 +266,7 @@
             presaleFaqOpen: false, 
             whitepaperOpen: false, 
             
-            // Daily Check-in State
+            // Daily Check-in State - RESET TO ZERO
             dailyCheckin: {
                 streak: 0,
                 lastClaim: 0,
@@ -303,69 +274,61 @@
             
             // UI State
             notification: null,
-            welcomeClaimed: localStorage.getItem('qtx_welcome_claimed') === 'true',
+            welcomeClaimed: false, // Reset welcome claim status
         };
 
-        // --- TON CONNECT INTEGRATION ---
+        // TON Connect Variables
         let tonConnectUI = null;
+        let isTonConnectInitialized = false;
+
+        // --- TON CONNECT INTEGRATION ---
 
         function initializeTonConnect() {
+            if (isTonConnectInitialized) return;
+
             try {
-                // Initialize TON Connect with your app's manifest URL
-                const manifestUrl = 'https://tranquil-licorice-9cec1c.netlify.app/tonconnect-manifest.json';
-                
+                // Initialize TON Connect
                 tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: manifestUrl,
-                    buttonRootId: 'ton-connect-container',
+                    manifestUrl: 'https://tranquil-licorice-9cec1c.netlify.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
                     actionsConfiguration: {
-                        twaReturnUrl: 'https://t.me/your_bot'
+                        twaReturnUrl: 'https://t.me/Quotexhouse_bot'
                     }
                 });
 
-                // Restore connection if exists
+                // Set up event listeners
+                tonConnectUI.onStatusChange((wallet) => {
+                    if (wallet) {
+                        globalState.connectedWallet = wallet.account.address;
+                        globalState.walletBalance = Math.random() * 10; // Mock balance for demo
+                        showNotification("TON Wallet Connected Successfully!", 3000);
+                    } else {
+                        globalState.connectedWallet = null;
+                        globalState.walletBalance = 0.0;
+                    }
+                    renderPage();
+                });
+
+                // Check if wallet is already connected
                 tonConnectUI.connectionRestored.then(() => {
-                    updateWalletConnection();
+                    console.log("Connection restored");
                 });
 
-                // Subscribe to connection status changes
-                tonConnectUI.onStatusChange(walletInfo => {
-                    updateWalletConnection(walletInfo);
-                });
-
+                isTonConnectInitialized = true;
+                
             } catch (error) {
-                console.error('TON Connect initialization error:', error);
-                showNotification('TON Connect initialization failed. Please refresh the page.', 5000);
+                console.error("TON Connect initialization failed:", error);
+                showNotification("TON Connect initialization failed", 3000);
             }
-        }
-
-        function updateWalletConnection(walletInfo) {
-            if (walletInfo) {
-                const account = walletInfo.account;
-                if (account) {
-                    globalState.connectedWallet = account.address;
-                    globalState.walletType = walletInfo.device.appName;
-                    showNotification(`${walletInfo.device.appName} wallet connected!`, 3000);
-                }
-            } else {
-                globalState.connectedWallet = null;
-                globalState.walletType = null;
-            }
-            saveState();
-            
-            // Refresh wallet page if currently viewing it
-            if (globalState.currentPage === 'wallet') {
-                renderPage();
-            }
-        }
-
-        function showTonConnectModal() {
-            document.getElementById('ton-connect-widget').classList.remove('hidden');
         }
 
         function disconnectWallet() {
             if (tonConnectUI) {
                 tonConnectUI.disconnect();
-                showNotification('Wallet disconnected', 3000);
+                globalState.connectedWallet = null;
+                globalState.walletBalance = 0.0;
+                showNotification("Wallet Disconnected", 3000);
+                renderPage();
             }
         }
 
@@ -874,7 +837,7 @@
         }
 
         function copyReferralLink() {
-            const referralLink = `https://t.me/YourBot?start=ref_${globalState.userId}`;
+            const referralLink = `https://t.me/Quotexhouse_bot?start=ref_${globalState.userId}`;
             const tempInput = document.createElement('input');
             tempInput.value = referralLink;
             document.body.appendChild(tempInput);
@@ -890,7 +853,7 @@
         }
 
         function shareReferralLink() {
-            const link = `https://t.me/YourBot?start=ref_${globalState.userId}`;
+            const link = `https://t.me/Quotexhouse_bot?start=ref_${globalState.userId}`;
             const text = `Join the Quotex QTX Airdrop Game and start mining with me! Click here: ${link}`;
 
             if (navigator.share) {
@@ -927,6 +890,46 @@
             renderPage();
         }
 
+        // --- PROFILE FUNCTIONALITY ---
+        function showProfileModal() {
+            const title = "User Profile";
+            const bodyHtml = `
+                <div class="flex flex-col items-center mb-4">
+                    <div class="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center mb-3">
+                        <i data-lucide="user" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">User #${globalState.userId.substring(5, 9)}</h3>
+                    <p class="text-gray-400 text-sm">Mining since ${new Date().toLocaleDateString()}</p>
+                </div>
+                
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Total QTX Earned:</span>
+                        <span class="text-white font-bold">${globalState.balance.toFixed(2)} ${QTX_TOKEN}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Referrals:</span>
+                        <span class="text-white font-bold">${globalState.referralCount}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Farm Claims:</span>
+                        <span class="text-white font-bold">${globalState.farmClaimCount}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Current Rank:</span>
+                        <span class="text-white font-bold">#${globalState.currentRank}</span>
+                    </div>
+                </div>
+            `;
+            const buttonHtml = `
+                <button onclick="document.getElementById('generic-modal').style.display='none'" class="w-full py-3 bg-gradient-to-r from-blue-600 to-sky-400 text-white font-bold rounded-xl shadow-lg hover:from-blue-500 transition">
+                    Close
+                </button>
+            `;
+
+            showGenericModal(title, bodyHtml, buttonHtml);
+        }
+
 
         // --- PAGE RENDERERS ---
 
@@ -934,11 +937,18 @@
             const { multiplier, isActive, timeRemaining, name } = getBoostDetails();
 
             return `
-                <header class="text-center p-4 pt-6">
-                    <h1 class="text-3xl font-black text-white professional-heading mb-1">
-                        QTX Mining Core
-                    </h1>
-                    <p class="text-xs text-gray-400">Quotex Airdrop Utility</p>
+                <!-- Updated Header with Profile Icon on Left -->
+                <header class="flex items-center justify-between p-4 pt-6">
+                    <button onclick="showProfileModal()" class="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition">
+                        <i data-lucide="user" class="w-6 h-6 text-white"></i>
+                    </button>
+                    <div class="text-center">
+                        <h1 class="text-3xl font-black text-white professional-heading mb-1">
+                            QTX Mining Core
+                        </h1>
+                        <p class="text-xs text-gray-400">Quotex Airdrop Utility</p>
+                    </div>
+                    <div class="w-10"></div> <!-- Empty div for balance -->
                 </header>
                 
                 <!-- Main Balance -->
@@ -1275,9 +1285,16 @@
                         <span id="qtx-estimate" class="text-xl font-bold text-green-400 ml-2">0.0 QTX</span>
                     </div>
                     
-                    <button onclick="handlePresaleBuy()" class="w-full py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold rounded-xl shadow-lg hover:from-pink-600 transition transform active:scale-[0.98]">
-                        <i data-lucide="shopping-bag" class="w-5 h-5 inline mr-2"></i> Purchase with TON
+                    <button onclick="handlePresaleBuy()" ${!globalState.connectedWallet ? 'disabled' : ''}
+                        class="w-full py-3 bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold rounded-xl shadow-lg hover:from-pink-600 transition transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="shopping-bag" class="w-5 h-5 inline mr-2"></i> 
+                        ${!globalState.connectedWallet ? 'Connect Wallet First' : 'Purchase with TON'}
                     </button>
+                    
+                    ${!globalState.connectedWallet ? 
+                        '<p class="text-xs text-red-400 mt-2 text-center">Please connect your TON wallet first</p>' : 
+                        ''
+                    }
                 </div>
 
                 <!-- FAQ and Tokenomics Buttons (Side-by-Side) -->
@@ -1366,6 +1383,11 @@
         }
         
         function handlePresaleBuy() {
+            if (!globalState.connectedWallet) {
+                showNotification("Please connect your TON wallet first!", 3000);
+                return;
+            }
+
             const tonInput = document.getElementById('ton-input');
             const tonAmount = parseFloat(tonInput.value);
             if (!tonAmount || tonAmount <= 0.1) {
@@ -1373,16 +1395,9 @@
                 return;
             }
 
-            // Check if wallet is connected
-            if (!globalState.connectedWallet) {
-                showNotification("Please connect your TON wallet first!", 3000);
-                navigateTo('wallet');
-                return;
-            }
-
             const qtxAmount = tonAmount * PRESALE_RATE;
 
-            // MOCK TON CONNECT/TRANSACTION:
+            // MOCK TON TRANSACTION (In real app, this would be actual blockchain transaction)
             globalState.balance += qtxAmount;
             globalState.presaleHistory.unshift({
                 ton: tonAmount.toFixed(2),
@@ -1478,9 +1493,9 @@
                                     </div>
                                 </div>
                                 <button onclick="handleBoostPurchase('${pkg.name}', ${pkg.multiplier}, ${pkg.durationHours})"
-                                    ${isCurrentActive ? 'disabled' : ''}
+                                    ${isCurrentActive || !globalState.connectedWallet ? 'disabled' : ''}
                                     class="w-full py-2 mt-auto bg-gradient-to-r from-blue-600 to-sky-500 text-white font-bold rounded-lg hover:from-blue-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-sm">
-                                    ${isCurrentActive ? 'Active' : `Buy for ${pkg.priceTon.toFixed(2)} TON`}
+                                    ${isCurrentActive ? 'Active' : (!globalState.connectedWallet ? 'Connect Wallet' : `Buy for ${pkg.priceTon.toFixed(2)} TON`)}
                                 </button>
                             </div>
                         </div>
@@ -1490,9 +1505,27 @@
         }
 
         function renderWalletPage() {
-            const walletConnected = globalState.connectedWallet;
-            
-            return `
+            const walletStatus = globalState.connectedWallet ? 
+                `
+                <div class="bg-green-900/50 p-4 rounded-xl border border-green-600 shadow-inner mb-4">
+                    <p class="text-sm text-green-400 font-semibold mb-2">Status: CONNECTED</p>
+                    <p class="text-xs text-white break-all mb-2">Address: ${globalState.connectedWallet}</p>
+                    <p class="text-sm text-yellow-300">Balance: ${globalState.walletBalance.toFixed(4)} TON</p>
+                </div>
+                <button onclick="disconnectWallet()" class="w-full py-3 bg-gradient-to-r from-red-600 to-pink-500 text-white font-bold rounded-xl shadow-lg hover:from-red-500 transition transform active:scale-[0.98]">
+                    <i data-lucide="log-out" class="w-5 h-5 inline mr-2"></i> Disconnect Wallet
+                </button>
+                ` 
+                : 
+                `
+                <div class="bg-yellow-900/50 p-4 rounded-xl border border-yellow-600 shadow-inner mb-4">
+                    <p class="text-sm text-yellow-400 font-semibold">Status: NOT CONNECTED</p>
+                    <p class="text-xs text-gray-400 mt-1">Connect your TON wallet to participate in presale and receive airdrop.</p>
+                </div>
+                <div id="ton-connect-button" class="ton-connect-button"></div>
+                `;
+
+             return `
                 <header class="p-4 pt-6 text-center">
                     <h2 class="text-2xl font-bold text-white professional-heading">Wallet & Security</h2>
                     <p class="text-sm text-gray-400 mt-1">Connect your TON wallet for Presale and future Airdrop.</p>
@@ -1511,47 +1544,34 @@
                     <h3 class="text-xl font-bold text-blue-400 mb-3 flex items-center professional-heading">
                         <i data-lucide="link" class="w-5 h-5 mr-2"></i>TON Wallet Connection
                     </h3>
-                    
-                    ${walletConnected ? 
-                        `
-                        <div class="bg-green-900/50 p-3 rounded-xl border border-green-600 shadow-inner mb-4">
-                            <p class="text-sm text-green-400 font-semibold mb-1">Status: CONNECTED</p>
-                            <p class="text-xs text-white break-all mb-2">Wallet: ${globalState.walletType || 'TON Wallet'}</p>
-                            <p class="text-xs text-gray-300 break-all">Address: ${globalState.connectedWallet}</p>
-                        </div>
-                        <button onclick="disconnectWallet()" class="w-full py-3 bg-gradient-to-r from-red-600 to-red-400 text-white font-bold rounded-xl shadow-lg hover:from-red-500 transition transform active:scale-[0.98]">
-                            <i data-lucide="unlink" class="w-5 h-5 inline mr-2"></i> Disconnect Wallet
-                        </button>
-                        ` : 
-                        `
-                        <div class="mb-4 p-3 bg-yellow-900/30 rounded-xl border border-yellow-600">
-                            <p class="text-sm text-yellow-400 mb-2">Connect your TON wallet to participate in presale and receive airdrop rewards.</p>
-                            <p class="text-xs text-gray-400">Supported wallets: Tonkeeper, MyTonWallet, and others</p>
-                        </div>
-                        <button onclick="showTonConnectModal()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-sky-400 text-white font-bold rounded-xl shadow-lg hover:from-blue-500 transition transform active:scale-[0.98]">
-                            <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Connect TON Wallet
-                        </button>
-                        `
-                    }
+                    ${walletStatus}
+                    <p class="text-xs text-gray-500 mt-3 text-center">Required for Airdrop distribution and Presale purchases.</p>
                 </div>
 
-                <!-- Wallet Info Section -->
-                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-green-500/50">
-                    <h3 class="text-xl font-bold text-green-400 mb-3 flex items-center professional-heading">
-                        <i data-lucide="shield" class="w-5 h-5 mr-2"></i>Security Information
-                    </h3>
+                <!-- Supported Wallets Info -->
+                <div class="card p-4 mx-4 shadow-xl mb-6 border-2 border-purple-500/50">
+                    <h3 class="text-xl font-bold text-purple-400 mb-3 professional-heading">Supported Wallets</h3>
                     <div class="space-y-3 text-sm">
-                        <div class="flex items-start">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-                            <p class="text-gray-300">Your wallet connection is secure and encrypted</p>
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="smartphone" class="w-6 h-6 text-blue-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">Telegram Wallet</p>
+                                <p class="text-gray-400 text-xs">Built-in TON wallet in Telegram</p>
+                            </div>
                         </div>
-                        <div class="flex items-start">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-                            <p class="text-gray-300">We never have access to your private keys</p>
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="wallet" class="w-6 h-6 text-green-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">Tonkeeper</p>
+                                <p class="text-gray-400 text-xs">Popular TON blockchain wallet</p>
+                            </div>
                         </div>
-                        <div class="flex items-start">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-                            <p class="text-gray-300">All transactions require your explicit approval</p>
+                        <div class="flex items-center p-2 bg-gray-800 rounded-lg">
+                            <i data-lucide="shield" class="w-6 h-6 text-yellow-400 mr-3"></i>
+                            <div>
+                                <p class="font-semibold text-white">MyTonWallet</p>
+                                <p class="text-gray-400 text-xs">Browser extension wallet</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1559,6 +1579,11 @@
         }
         
         function handleBoostPurchase(name, multiplier, durationHours) {
+            if (!globalState.connectedWallet) {
+                showNotification("Please connect your TON wallet first!", 3000);
+                return;
+            }
+
             const newEndTime = Date.now() + (durationHours * 60 * 60 * 1000);
             globalState.activeBoost = {
                 name,
@@ -1638,6 +1663,10 @@
                     <p class="text-sm text-gray-400">
                         Airdrop distribution will be calculated based on your total QTX earned and completion of all core criteria. Tokens will be sent to your connected TON Wallet.
                     </p>
+                    <p class="text-sm text-yellow-400 mt-2">
+                        <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
+                        Make sure your TON wallet is connected to receive the airdrop!
+                    </p>
                 </div>
             `;
         }
@@ -1687,81 +1716,87 @@
             if (globalState.currentPage === 'presale') {
                 updatePresaleEstimate();
             }
+            if (globalState.currentPage === 'wallet') {
+                // Initialize TON Connect when wallet page is rendered
+                setTimeout(() => {
+                    initializeTonConnect();
+                }, 100);
+            }
         }
 
         // --- INITIALIZATION ---
         function loadState() {
-            if (localStorage.getItem('qtx_farm_ready_time')) {
-                globalState.farmReadyTime = parseInt(localStorage.getItem('qtx_farm_ready_time'));
-            }
-            if (localStorage.getItem('qtx_balance')) {
-                globalState.balance = parseFloat(localStorage.getItem('qtx_balance'));
-            }
-            if (localStorage.getItem('qtx_farm_claim_count')) { // Load farm claim count
-                globalState.farmClaimCount = parseInt(localStorage.getItem('qtx_farm_claim_count'));
-            }
-            if (localStorage.getItem('qtx_referral_count')) {
-                 globalState.referralCount = parseInt(localStorage.getItem('qtx_referral_count'));
-            }
-            if (localStorage.getItem('qtx_daily_checkin')) {
-                globalState.dailyCheckin = JSON.parse(localStorage.getItem('qtx_daily_checkin'));
-            }
-            if (localStorage.getItem('qtx_boost_active')) {
-                globalState.activeBoost = JSON.parse(localStorage.getItem('qtx_boost_active'));
-            }
-            if (localStorage.getItem('qtx_presale_history')) {
-                globalState.presaleHistory = JSON.parse(localStorage.getItem('qtx_presale_history'));
-            }
-            if (localStorage.getItem('qtx_connected_wallet')) {
-                globalState.connectedWallet = localStorage.getItem('qtx_connected_wallet');
-            }
-            if (localStorage.getItem('qtx_wallet_type')) {
-                globalState.walletType = localStorage.getItem('qtx_wallet_type');
-            }
+            // Clear all localStorage to reset state
+            localStorage.clear();
             
-            // Load Quotex task state and ensure it merges correctly with the default structure
-            const savedQuotex = localStorage.getItem('qtx_quotex_task');
-            if (savedQuotex) {
-                const parsed = JSON.parse(savedQuotex);
-                globalState.tasks.quotex = { ...globalState.tasks.quotex, ...parsed };
-            }
-            
-            // NEW: Load Presale Bonus task state
-            const savedPresaleBonus = localStorage.getItem('qtx_presale_bonus_task');
-            if (savedPresaleBonus) {
-                const parsed = JSON.parse(savedPresaleBonus);
-                globalState.tasks.presaleBonus = { ...globalState.tasks.presaleBonus, ...parsed };
-            }
-            
-            // Generate a random ID for this session/user if needed
-            globalState.userId = 'tg-' + Math.random().toString(36).substring(2, 9);
+            // Set all values to initial zero state
+            globalState = {
+                currentPage: 'home',
+                userId: 'user-' + Math.random().toString(36).substring(2, 9),
+                balance: 0.0,
+                farmClaimCount: 0,
+                referralCount: 0,
+                currentRank: 0,
+                connectedWallet: null,
+                walletBalance: 0.0,
+                farmReadyTime: 0,
+                tasks: {
+                    joinTelegram: { completed: false, reward: 10.0, title: 'Join Telegram Channel' },
+                    followTwitter: { completed: false, reward: 10.0, title: 'Follow us on X (Twitter)' },
+                    joinCommunity: { completed: false, reward: 7.0, title: 'Join Telegram Community' },
+                    quotex: { 
+                        completed: false, 
+                        reward: 12.5, 
+                        title: 'Join Quotex platform', 
+                        status: 'initial', 
+                        quotexId: null, 
+                        idEntryTime: 0 
+                    },
+                    presaleBonus: { 
+                        completed: false, 
+                        reward: 15.0, 
+                        title: 'Presale Purchase Bonus (Min 0.1 TON)',
+                        metRequirement: false,
+                    },
+                },
+                referralTiers: JSON.parse(JSON.stringify(REFERRAL_TIERS)),
+                presaleHistory: [],
+                activeBoost: {
+                    multiplier: 1.0,
+                    endTime: 0,
+                    name: 'None',
+                },
+                boostFaqOpen: false,
+                presaleFaqOpen: false,
+                whitepaperOpen: false,
+                dailyCheckin: {
+                    streak: 0,
+                    lastClaim: 0,
+                },
+                notification: null,
+                welcomeClaimed: false,
+            };
         }
 
         function saveState() {
             localStorage.setItem('qtx_farm_ready_time', globalState.farmReadyTime.toString());
             localStorage.setItem('qtx_balance', globalState.balance.toFixed(2));
-            localStorage.setItem('qtx_farm_claim_count', globalState.farmClaimCount.toString()); // Save farm claim count
+            localStorage.setItem('qtx_farm_claim_count', globalState.farmClaimCount.toString());
             localStorage.setItem('qtx_referral_count', globalState.referralCount.toString());
             localStorage.setItem('qtx_daily_checkin', JSON.stringify(globalState.dailyCheckin));
             localStorage.setItem('qtx_boost_active', JSON.stringify(globalState.activeBoost));
             localStorage.setItem('qtx_presale_history', JSON.stringify(globalState.presaleHistory));
             localStorage.setItem('qtx_quotex_task', JSON.stringify(globalState.tasks.quotex));
-            
-            // NEW: Save Presale Bonus task state
             localStorage.setItem('qtx_presale_bonus_task', JSON.stringify(globalState.tasks.presaleBonus));
 
             if (globalState.connectedWallet) {
                 localStorage.setItem('qtx_connected_wallet', globalState.connectedWallet);
-            }
-            if (globalState.walletType) {
-                localStorage.setItem('qtx_wallet_type', globalState.walletType);
             }
         }
 
         window.onload = function() {
             loadState();
             startTimers();
-            initializeTonConnect(); // Initialize TON Connect
             renderPage();
             
             if (!globalState.welcomeClaimed) {
