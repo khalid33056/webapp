@@ -305,19 +305,33 @@
         
         function initTonConnect() {
             try {
-                // Initialize TON Connect with your app's manifest URL
+                console.log("Initializing TON Connect...");
+                
+                // Create a proper manifest for the app
+                const manifest = {
+                    url: window.location.href,
+                    name: 'QTX Airdrop Game',
+                    iconUrl: 'https://raw.githubusercontent.com/ton-community/tutorials/main/03-client/test/public/tonconnect-manifest.json',
+                    // You should replace this with your actual app icon URL
+                };
+                
+                // Initialize TON Connect with proper configuration
                 tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-                    manifestUrl: 'https://raw.githubusercontent.com/ton-community/tutorials/main/03-client/test/public/tonconnect-manifest.json',
-                    buttonRootId: 'ton-connect-button'
+                    manifest: manifest,
+                    buttonRootId: 'ton-connect-button',
+                    actionsConfiguration: {
+                        twaReturnUrl: 'https://t.me/your_bot' // Replace with your Telegram bot URL if needed
+                    }
                 });
 
                 // Subscribe to connection status changes
-                tonConnectUI.onStatusChange(wallet => {
+                tonConnectUI.onStatusChange(async (wallet) => {
+                    console.log("Wallet status changed:", wallet);
                     if (wallet) {
                         // Wallet connected
                         globalState.connectedWallet = wallet.account.address;
                         // Fetch real wallet balance
-                        fetchWalletBalance(wallet.account.address);
+                        await fetchWalletBalance(wallet.account.address);
                         showNotification("TON Wallet Connected Successfully!", 3000);
                     } else {
                         // Wallet disconnected
@@ -331,7 +345,11 @@
                 // Check if already connected
                 tonConnectUI.connectionRestored.then(() => {
                     console.log("Connection restored");
+                }).catch(error => {
+                    console.log("No previous connection to restore:", error);
                 });
+                
+                console.log("TON Connect initialized successfully");
             } catch (error) {
                 console.error("TON Connect initialization error:", error);
                 // Fallback to manual connection if TON Connect fails
@@ -340,7 +358,7 @@
         }
 
         function setupManualWalletConnection() {
-            // Simple manual wallet connection fallback
+            console.log("Setting up manual wallet connection");
             const connectButton = document.getElementById('ton-connect-button');
             if (connectButton) {
                 connectButton.innerHTML = `
@@ -353,6 +371,7 @@
         }
 
         function connectManualWallet() {
+            console.log("Manual wallet connection triggered");
             // Simple mock for demonstration - in production, this would use TON Connect
             const mockAddress = 'EQ' + Math.random().toString(36).substring(2, 20).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
             globalState.connectedWallet = mockAddress;
@@ -362,6 +381,7 @@
         }
 
         function disconnectWallet() {
+            console.log("Disconnecting wallet");
             if (tonConnectUI) {
                 tonConnectUI.disconnect();
             } else {
@@ -374,6 +394,7 @@
 
         async function fetchWalletBalance(address) {
             try {
+                console.log("Fetching wallet balance for:", address);
                 // Using TON API to get real balance
                 const response = await fetch(`https://tonapi.io/v2/accounts/${address}`);
                 const data = await response.json();
@@ -381,14 +402,17 @@
                 if (data && data.balance) {
                     // Convert from nanotons to TON
                     globalState.walletBalance = data.balance / 1000000000;
+                    console.log("Real balance fetched:", globalState.walletBalance);
                 } else {
                     // Fallback to random balance if API fails
                     globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
+                    console.log("Using fallback balance:", globalState.walletBalance);
                 }
             } catch (error) {
                 console.error("Error fetching wallet balance:", error);
                 // Fallback to random balance
                 globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
+                console.log("Using fallback balance after error:", globalState.walletBalance);
             }
         }
 
@@ -1796,7 +1820,10 @@
             if (globalState.currentPage === 'wallet') {
                 // Initialize TON Connect button if needed
                 if (!globalState.connectedWallet && !tonConnectUI) {
-                    initTonConnect();
+                    console.log("Initializing TON Connect from renderPage");
+                    setTimeout(() => {
+                        initTonConnect();
+                    }, 100);
                 }
             }
         }
@@ -1861,6 +1888,7 @@
 
         // Wait for DOM to be fully loaded before initializing
         document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM Content Loaded - Initializing app");
             loadState();
             startTimers();
             renderPage();
@@ -1871,6 +1899,14 @@
             
             // Save state periodically
             setInterval(saveState, 5000);
+            
+            // Initialize TON Connect on app startup
+            console.log("Initializing TON Connect on app startup");
+            setTimeout(() => {
+                if (!globalState.connectedWallet) {
+                    initTonConnect();
+                }
+            }, 500);
         });
     </script>
 </body>
