@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- TON Connect UI -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         /* Define Simple Blue Professional Colors */
         :root {
@@ -110,29 +112,6 @@
         .custom-scroll::-webkit-scrollbar-thumb {
             background-color: var(--primary-blue);
             border-radius: 2px;
-        }
-
-        /* Manual TON Connect Button */
-        .manual-connect-btn {
-            background: linear-gradient(135deg, #0077ff, #00a8ff);
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        .manual-connect-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 119, 255, 0.4);
-        }
-        .manual-connect-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
         }
     </style>
 </head>
@@ -298,102 +277,59 @@
             welcomeClaimed: false, // Reset welcome claim status
         };
 
-        // --- MANUAL WALLET CONNECTION SYSTEM ---
-        // Since we don't have manifest.json, we'll use a manual connection system
+        // TON Connect Variables
+        let tonConnectUI = null;
+        let isTonConnectInitialized = false;
 
-        function connectWallet() {
-            // Show wallet options modal
-            const title = "Connect TON Wallet";
-            const bodyHtml = `
-                <div class="space-y-3">
-                    <p class="text-gray-300 text-sm mb-4">Choose your wallet to connect:</p>
-                    
-                    <button onclick="connectTelegramWallet()" class="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="message-circle" class="w-5 h-5 mr-3"></i>
-                            <span>Telegram Wallet</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="connectTonkeeper()" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="shield" class="w-5 h-5 mr-3"></i>
-                            <span>Tonkeeper</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="connectMyTonWallet()" class="w-full p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="wallet" class="w-5 h-5 mr-3"></i>
-                            <span>MyTonWallet</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                    
-                    <button onclick="mockWalletConnection()" class="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl flex items-center justify-between transition">
-                        <div class="flex items-center">
-                            <i data-lucide="cpu" class="w-5 h-5 mr-3"></i>
-                            <span>Demo Wallet (Test Mode)</span>
-                        </div>
-                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            `;
-            const buttonHtml = `
-                <button onclick="document.getElementById('generic-modal').style.display='none'" class="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition">
-                    Cancel
-                </button>
-            `;
+        // --- TON CONNECT INTEGRATION ---
 
-            showGenericModal(title, bodyHtml, buttonHtml);
-            lucide.createIcons();
-        }
+        function initializeTonConnect() {
+            if (isTonConnectInitialized) return;
 
-        function connectTelegramWallet() {
-            document.getElementById('generic-modal').style.display = 'none';
-            showNotification("Opening Telegram Wallet...", 3000);
-            // In real implementation, this would open TON Connect
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
+            try {
+                // Initialize TON Connect
+                tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+                    manifestUrl: 'https://tranquil-licorice-9cec1c.netlify.app/tonconnect-manifest.json',
+                    buttonRootId: 'ton-connect-button',
+                    actionsConfiguration: {
+                        twaReturnUrl: 'https://t.me/Quotexhouse_bot'
+                    }
+                });
 
-        function connectTonkeeper() {
-            document.getElementById('generic-modal').style.display = 'none';
-            showNotification("Opening Tonkeeper...", 3000);
-            // In real implementation, this would open Tonkeeper deeplink
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
+                // Set up event listeners
+                tonConnectUI.onStatusChange((wallet) => {
+                    if (wallet) {
+                        globalState.connectedWallet = wallet.account.address;
+                        globalState.walletBalance = Math.random() * 10; // Mock balance for demo
+                        showNotification("TON Wallet Connected Successfully!", 3000);
+                    } else {
+                        globalState.connectedWallet = null;
+                        globalState.walletBalance = 0.0;
+                    }
+                    renderPage();
+                });
 
-        function connectMyTonWallet() {
-            document.getElementById('generic-modal').style.display = 'none';
-            showNotification("Connecting to MyTonWallet...", 3000);
-            // In real implementation, this would connect to MyTonWallet extension
-            setTimeout(() => {
-                mockWalletConnection();
-            }, 2000);
-        }
+                // Check if wallet is already connected
+                tonConnectUI.connectionRestored.then(() => {
+                    console.log("Connection restored");
+                });
 
-        function mockWalletConnection() {
-            // Mock wallet connection for demo purposes
-            const mockAddress = 'EQ' + Math.random().toString(36).substring(2, 20).toUpperCase() + Math.random().toString(36).substring(2, 10).toUpperCase();
-            globalState.connectedWallet = mockAddress;
-            globalState.walletBalance = (Math.random() * 10 + 0.1).toFixed(4);
-            
-            document.getElementById('generic-modal').style.display = 'none';
-            showNotification("TON Wallet Connected Successfully!", 3000);
-            renderPage();
+                isTonConnectInitialized = true;
+                
+            } catch (error) {
+                console.error("TON Connect initialization failed:", error);
+                showNotification("TON Connect initialization failed", 3000);
+            }
         }
 
         function disconnectWallet() {
-            globalState.connectedWallet = null;
-            globalState.walletBalance = 0.0;
-            showNotification("Wallet Disconnected", 3000);
-            renderPage();
+            if (tonConnectUI) {
+                tonConnectUI.disconnect();
+                globalState.connectedWallet = null;
+                globalState.walletBalance = 0.0;
+                showNotification("Wallet Disconnected", 3000);
+                renderPage();
+            }
         }
 
         // --- CORE UI FUNCTIONS ---
@@ -443,7 +379,7 @@
             `;
 
             modal.style.display = 'flex';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            lucide.createIcons();
         }
 
         // --- QUOTEX TASK LOGIC ---
@@ -714,7 +650,7 @@
                 container.classList.remove('mb-6', 'flex'); 
                 container.classList.add('checked-in-fixed'); 
             }
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            lucide.createIcons();
         }
 
 
@@ -808,7 +744,7 @@
                 `;
             }
             farmButtonContainer.innerHTML = buttonHtml;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            lucide.createIcons();
             
             // Render additional farming stats below the button
             const statsHtml = `
@@ -832,7 +768,7 @@
             const farmStatsContainer = document.getElementById('farm-stats-container');
             if (farmStatsContainer) {
                 farmStatsContainer.innerHTML = statsHtml;
-                if (typeof lucide !== 'undefined') lucide.createIcons();
+                lucide.createIcons();
             }
         }
 
@@ -1568,22 +1504,6 @@
             `;
         }
 
-        function handleBoostPurchase(name, multiplier, durationHours) {
-            if (!globalState.connectedWallet) {
-                showNotification("Please connect your TON wallet first!", 3000);
-                return;
-            }
-
-            const newEndTime = Date.now() + (durationHours * 60 * 60 * 1000);
-            globalState.activeBoost = {
-                name,
-                multiplier,
-                endTime: newEndTime,
-            };
-            showNotification(`Boost Activated! ${multiplier}x for ${durationHours} hours.`, 5000);
-            renderPage();
-        }
-
         function renderWalletPage() {
             const walletStatus = globalState.connectedWallet ? 
                 `
@@ -1602,9 +1522,7 @@
                     <p class="text-sm text-yellow-400 font-semibold">Status: NOT CONNECTED</p>
                     <p class="text-xs text-gray-400 mt-1">Connect your TON wallet to participate in presale and receive airdrop.</p>
                 </div>
-                <button onclick="connectWallet()" class="manual-connect-btn">
-                    <i data-lucide="wallet" class="w-5 h-5 inline mr-2"></i> Connect TON Wallet
-                </button>
+                <div id="ton-connect-button" class="ton-connect-button"></div>
                 `;
 
              return `
@@ -1635,21 +1553,21 @@
                     <h3 class="text-xl font-bold text-purple-400 mb-3 professional-heading">Supported Wallets</h3>
                     <div class="space-y-3 text-sm">
                         <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                            <i data-lucide="message-circle" class="w-6 h-6 text-blue-400 mr-3"></i>
+                            <i data-lucide="smartphone" class="w-6 h-6 text-blue-400 mr-3"></i>
                             <div>
                                 <p class="font-semibold text-white">Telegram Wallet</p>
                                 <p class="text-gray-400 text-xs">Built-in TON wallet in Telegram</p>
                             </div>
                         </div>
                         <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                            <i data-lucide="shield" class="w-6 h-6 text-green-400 mr-3"></i>
+                            <i data-lucide="wallet" class="w-6 h-6 text-green-400 mr-3"></i>
                             <div>
                                 <p class="font-semibold text-white">Tonkeeper</p>
                                 <p class="text-gray-400 text-xs">Popular TON blockchain wallet</p>
                             </div>
                         </div>
                         <div class="flex items-center p-2 bg-gray-800 rounded-lg">
-                            <i data-lucide="wallet" class="w-6 h-6 text-yellow-400 mr-3"></i>
+                            <i data-lucide="shield" class="w-6 h-6 text-yellow-400 mr-3"></i>
                             <div>
                                 <p class="font-semibold text-white">MyTonWallet</p>
                                 <p class="text-gray-400 text-xs">Browser extension wallet</p>
@@ -1658,6 +1576,22 @@
                     </div>
                 </div>
             `;
+        }
+        
+        function handleBoostPurchase(name, multiplier, durationHours) {
+            if (!globalState.connectedWallet) {
+                showNotification("Please connect your TON wallet first!", 3000);
+                return;
+            }
+
+            const newEndTime = Date.now() + (durationHours * 60 * 60 * 1000);
+            globalState.activeBoost = {
+                name,
+                multiplier,
+                endTime: newEndTime,
+            };
+            showNotification(`Boost Activated! ${multiplier}x for ${durationHours} hours.`, 5000);
+            renderPage();
         }
 
         function renderAirdropPage() {
@@ -1781,6 +1715,12 @@
             }
             if (globalState.currentPage === 'presale') {
                 updatePresaleEstimate();
+            }
+            if (globalState.currentPage === 'wallet') {
+                // Initialize TON Connect when wallet page is rendered
+                setTimeout(() => {
+                    initializeTonConnect();
+                }, 100);
             }
         }
 
